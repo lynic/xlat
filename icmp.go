@@ -33,12 +33,14 @@ func ICMP4ToICMP6(p *Packet) (*Packet, error) {
 	switch ICMPType(p.Data[icmpLayer.DataStart:]) {
 	case layers.ICMPv4TypeEchoRequest:
 		// icmpv6Layer.TypeCode = layers.CreateICMPv6TypeCode(layers.ICMPv6TypeEchoRequest, 0)
-		binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
-			binary.BigEndian.Uint16([]byte{layers.ICMPv6TypeEchoRequest, 0}))
+		copy(p.Data[icmpLayer.DataStart:], []byte{layers.ICMPv6TypeEchoRequest, 0})
+		// binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
+		// 	binary.BigEndian.Uint16([]byte{layers.ICMPv6TypeEchoRequest, 0}))
 	case layers.ICMPv4TypeEchoReply:
 		// icmpv6Layer.TypeCode = layers.CreateICMPv6TypeCode(layers.ICMPv6TypeEchoReply, 0)
-		binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
-			binary.BigEndian.Uint16([]byte{layers.ICMPv6TypeEchoReply, 0}))
+		copy(p.Data[icmpLayer.DataStart:], []byte{layers.ICMPv6TypeEchoReply, 0})
+		// binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
+		// 	binary.BigEndian.Uint16([]byte{layers.ICMPv6TypeEchoReply, 0}))
 	default:
 		return nil, fmt.Errorf("unsupported icmp type")
 	}
@@ -57,11 +59,13 @@ func ICMP6ToICMP4(p *Packet) (*Packet, error) {
 	// switch pLayer.TypeCode.Type() {
 	switch ICMPType(p.Data[icmpLayer.DataStart:]) {
 	case layers.ICMPv6TypeEchoRequest:
-		binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
-			binary.BigEndian.Uint16([]byte{layers.ICMPv4TypeEchoRequest, 0}))
+		copy(p.Data[icmpLayer.DataStart:], []byte{layers.ICMPv4TypeEchoRequest, 0})
+		// binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
+		// 	binary.BigEndian.Uint16([]byte{layers.ICMPv4TypeEchoRequest, 0}))
 	case layers.ICMPv6TypeEchoReply:
-		binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
-			binary.BigEndian.Uint16([]byte{layers.ICMPv4TypeEchoReply, 0}))
+		copy(p.Data[icmpLayer.DataStart:], []byte{layers.ICMPv4TypeEchoReply, 0})
+		// binary.BigEndian.PutUint16(p.Data[icmpLayer.DataStart:icmpLayer.DataStart+2],
+		// 	binary.BigEndian.Uint16([]byte{layers.ICMPv4TypeEchoReply, 0}))
 	default:
 		return nil, fmt.Errorf("unsupported icmp type")
 	}

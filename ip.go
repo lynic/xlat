@@ -125,8 +125,10 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 	ipv6Layer.Version = 6
 	ipv6Layer.Length = uint16(len(p.Data[ipv4Layer.DataEnd:]))
 	ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)
-
-	newData := append(ipv6Layer.Contents, p.Data[ipv4Layer.DataEnd:]...)
+	newData := make([]byte, len(ipv6Layer.Contents)+len(p.Data[ipv4Layer.DataEnd:]))
+	copy(newData, ipv6Layer.Contents)
+	copy(newData[len(ipv6Layer.Contents):], p.Data[ipv4Layer.DataEnd:])
+	// newData := append(ipv6Layer.Contents, p.Data[ipv4Layer.DataEnd:]...)
 	p.Data = newData
 	p.ReplaceIPLayer()
 	return p, nil
@@ -150,7 +152,8 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	ipLayer.DstIP[1] = dstIP[13]
 	ipLayer.DstIP[0] = dstIP[12]
 	// convert next protocol
-	if layers.IPProtocol(layer.NextHeader(p)) == layers.IPProtocolICMPv6 {
+	// if layers.IPProtocol(layer.NextHeader(p)) == layers.IPProtocolICMPv6 {
+	if layer.NextHeader(p) == 58 {
 		ipLayer.Protocol = layers.IPProtocolICMPv4
 	} else {
 		ipLayer.Protocol = layers.IPProtocol(layer.NextHeader(p))
@@ -160,7 +163,10 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	ipLayer.Length = uint16(HeaderIPv4Length + len(p.Data[layer.DataEnd:]))
 	// ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)
 	ipLayer.Contents = IPv4HeaderToBytes(ipLayer)
-	newData := append(ipLayer.Contents, p.Data[layer.DataEnd:]...)
+	newData := make([]byte, len(p.Data)-20)
+	copy(newData, ipLayer.Contents)
+	copy(newData[len(ipLayer.Contents):], p.Data[layer.DataEnd:])
+	// newData := append(ipLayer.Contents, p.Data[layer.DataEnd:]...)
 	p.Data = newData
 	p.ReplaceIPLayer()
 	return p, nil

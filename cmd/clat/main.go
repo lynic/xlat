@@ -20,8 +20,8 @@ func HandlePacket(data []byte) {
 	}
 	if pkt.Layers[0].Type == xlat.LayerTypeIPv6 {
 		// layer := pkt.Layers[0].Parse(pkt).(*layers.IPv6)
-		dstIP := pkt.Layers[0].GetDst(pkt)
-		if !xlat.ConfigVar.Clat.Src.Contains(dstIP) {
+		// dstIP := pkt.Layers[0].GetDst(pkt)
+		if !xlat.ConfigVar.Clat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
 			return
 		}
 		// log.Printf("[in] %s -> %s %s", layer.SrcIP.String(), layer.DstIP.String(), layer.NextLayerType())
@@ -81,16 +81,23 @@ func main() {
 		log.Printf("failed to init device")
 		return
 	}
+	blockSize := xlat.ConfigVar.Spec.MTU
+	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)
+	i := 0
 	for true {
-		packet := make([]byte, xlat.ConfigVar.Spec.MTU+100)
+		// packet := make([]byte, xlat.ConfigVar.Spec.MTU+100)
 		// inpkt, err := device.ReadPacket()
-		n, err := xlat.ConfigVar.Device().Read(packet)
+		n, err := xlat.ConfigVar.Device().Read(packets[i*blockSize:])
 		// clatCtrl.Device.WritePacket()
 		if err != nil {
 			log.Printf("%s", err.Error())
 			break
 		}
-		go HandlePacket(packet[:n])
+		go HandlePacket(packets[i*blockSize : i*blockSize+n])
+		i++
+		if i >= 10000 {
+			i = 0
+		}
 
 	}
 

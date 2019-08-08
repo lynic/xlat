@@ -29,6 +29,7 @@ type XlatConfigSpec struct {
 	DeviceName string   `json:"device"`
 	MTU        int      `json:"mtu"`
 	PostCMD    []string `json:"post_cmd"`
+	PoolSize   int      `json:"pool_size"`
 	Clat       *struct {
 		Src string `json:"src"`
 		Dst string `json:"dst"`

@@ -52,22 +52,15 @@ func NewPacket(data []byte) *Packet {
 	pkt := &Packet{
 		Data: data,
 	}
-	pkt.Layers = make([]*Layer, 0)
+	pkt.Layers = make([]*Layer, 0, 7)
 	return pkt
 }
 
 func (p *Packet) LazyParse() error {
-	p.Layers = make([]*Layer, 0)
-	if IsEthLayer(p.Data) {
-		layer := &Layer{
-			Type:          LayerTypeEthernet,
-			DataStart:     0,
-			DataEnd:       HeaderEthernetLength,
-			NextLayerType: EthNextLayer(p.Data),
-		}
-		p.Layers = append(p.Layers, layer)
-		return nil
+	if len(p.Layers) != 0 {
+		p.Layers = make([]*Layer, 0, 7)
 	}
+
 	if IsIPv4Layer(p.Data) {
 		layer := &Layer{
 			Type:          LayerTypeIPv4,
@@ -84,6 +77,16 @@ func (p *Packet) LazyParse() error {
 			DataStart:     0,
 			DataEnd:       HeaderIPv6Length,
 			NextLayerType: IPv6NextLayer(p.Data),
+		}
+		p.Layers = append(p.Layers, layer)
+		return nil
+	}
+	if IsEthLayer(p.Data) {
+		layer := &Layer{
+			Type:          LayerTypeEthernet,
+			DataStart:     0,
+			DataEnd:       HeaderEthernetLength,
+			NextLayerType: EthNextLayer(p.Data),
 		}
 		p.Layers = append(p.Layers, layer)
 		return nil
