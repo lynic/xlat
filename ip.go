@@ -68,9 +68,9 @@ func IPv6HeaderToBytes(ipv6 *layers.IPv6) []byte {
 	binary.BigEndian.PutUint16(bytes[4:], ipv6.Length)
 	bytes[6] = byte(ipv6.NextHeader)
 	bytes[7] = byte(ipv6.HopLimit)
-	if err := ipv6.AddressTo16(); err != nil {
-		return nil
-	}
+	// if err := ipv6.AddressTo16(); err != nil {
+	// 	return nil
+	// }
 	copy(bytes[8:], ipv6.SrcIP)
 	copy(bytes[24:], ipv6.DstIP)
 	return bytes

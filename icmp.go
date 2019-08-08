@@ -1,7 +1,6 @@
 package xlat
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/google/gopacket/layers"
@@ -15,14 +14,14 @@ func ICMPCode(data []byte) uint8 {
 	return uint8(data[1])
 }
 
-func ICMPv6HeaderToBytes(i *layers.ICMPv6) []byte {
-	bytes := make([]byte, 4)
-	binary.BigEndian.PutUint16(bytes, uint16(i.TypeCode))
-	// clear checksum
-	bytes[2] = 0
-	bytes[3] = 0
-	return bytes
-}
+// func ICMPv6HeaderToBytes(i *layers.ICMPv6) []byte {
+// 	bytes := make([]byte, 4)
+// 	binary.BigEndian.PutUint16(bytes, uint16(i.TypeCode))
+// 	// clear checksum
+// 	bytes[2] = 0
+// 	bytes[3] = 0
+// 	return bytes
+// }
 
 func ICMP4ToICMP6(p *Packet) (*Packet, error) {
 	layerIndex := p.LayerIndex(LayerTypeICMPv4)
