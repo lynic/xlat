@@ -115,6 +115,28 @@ func (l *Layer) Parse(p *Packet) gopacket.Layer {
 		}
 		l.ParsedLayer = layer
 		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypeTCP:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeTCP)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.TCP)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypeUDP:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeUDP)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.UDP)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
 	case LayerTypePayload:
 		l.DataEnd = len(p.Data)
 		l.ParsedLayer = nil
@@ -338,6 +360,19 @@ func (p *Packet) Parse() error {
 			dataIndex = layer.DataEnd
 			// layerIndex++
 			continue
+		case LayerTypeTCP:
+			layer := &Layer{
+				Type:      LayerTypeTCP,
+				DataStart: dataIndex,
+			}
+			player := layer.Parse(p)
+			if player == nil {
+				return fmt.Errorf("failed to parse %s", layer.Type)
+			}
+			nextLayer = LayerTypePayload
+			layer.NextLayerType = nextLayer
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
 		case LayerTypePayload:
 			layer := &Layer{
 				Type:          LayerTypePayload,
@@ -416,6 +451,29 @@ func (p *Packet) Taint() {
 
 // 	return nil
 // }
+
+func (p *Packet) FillTCPChecksum() error {
+	layer := p.GetLayerByType(LayerTypeTCP)
+	if layer == nil {
+		return fmt.Errorf("no %s layer", LayerTypeTCP)
+	}
+	// clear checksum
+	p.Data[layer.DataStart+16] = 0
+	p.Data[layer.DataStart+17] = 0
+	var ipcsum uint32
+	iplayer := p.GetLayerByType(LayerTypeIPv4)
+	if iplayer != nil {
+		ip := iplayer.ParsedLayer.(*layers.IPv4)
+		ipcsum = IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+	} else {
+		iplayer = p.GetLayerByType(LayerTypeIPv6)
+		ip := iplayer.ParsedLayer.(*layers.IPv6)
+		ipcsum = IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+	}
+	csum := ComputeChecksum(p.Data[layer.DataStart:], layers.IPProtocolTCP, ipcsum)
+	binary.BigEndian.PutUint16(p.Data[layer.DataStart+16:], csum)
+	return nil
+}
 
 func (p *Packet) FillICMPv4Checksum() error {
 	layer := p.GetLayerByType(LayerTypeICMPv4)

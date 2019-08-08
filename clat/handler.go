@@ -32,7 +32,8 @@ func ConvertPacket(p *xlat.Packet) (*xlat.Packet, error) {
 	}
 	// reparse packet
 	p.Parse()
-	// p.FillTCPChecksum()
+	// p.Print()
+	p.FillTCPChecksum()
 	// p.FillUDPChecksum()
 	p.FillICMPv6Checksum()
 	p.FillICMPv4Checksum()
