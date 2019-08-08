@@ -137,7 +137,7 @@ func IPv4HeaderToBytes(ip *layers.IPv4) []byte {
 
 func IP4ToIP6(p *Packet) (*Packet, error) {
 	ipv4Layer := p.GetLayerByType(LayerTypeIPv4)
-	ipLayer := ipv4Layer.ParsedLayer.(*layers.IPv4)
+	ipLayer := ipv4Layer.Parse(p).(*layers.IPv4)
 	ipv6Layer := &layers.IPv6{}
 
 	ipv6Layer.SrcIP = ConfigVar.Clat.Src.IP
@@ -173,7 +173,7 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 
 func IP6ToIP4(p *Packet) (*Packet, error) {
 	layer := p.GetLayerByType(LayerTypeIPv6)
-	ip6Layer := layer.ParsedLayer.(*layers.IPv6)
+	ip6Layer := layer.Parse(p).(*layers.IPv6)
 	ipLayer := &layers.IPv4{}
 
 	ipLayer.SrcIP = net.ParseIP("1.1.1.1").To4()

@@ -210,6 +210,26 @@ func (l *Layer) Parse(p *Packet) gopacket.Layer {
 	return l.ParsedLayer
 }
 
+func (l *Layer) GetSrc(p *Packet) []byte {
+	if l.Type == LayerTypeIPv4 {
+		return p.Data[l.DataStart+12 : l.DataStart+16]
+	}
+	if l.Type == LayerTypeIPv6 {
+		return p.Data[l.DataStart+8 : l.DataStart+24]
+	}
+	return nil
+}
+
+func (l *Layer) GetDst(p *Packet) []byte {
+	if l.Type == LayerTypeIPv4 {
+		return p.Data[l.DataStart+16 : l.DataStart+20]
+	}
+	if l.Type == LayerTypeIPv6 {
+		return p.Data[l.DataStart+24 : l.DataStart+40]
+	}
+	return nil
+}
+
 func (p *Packet) LazyParse() error {
 	p.Layers = make([]*Layer, 0)
 	if IsEthLayer(p.Data) {
@@ -237,12 +257,72 @@ func (p *Packet) LazyParse() error {
 			Type:          LayerTypeIPv6,
 			DataStart:     0,
 			DataEnd:       HeaderIPv6Length,
-			NextLayerType: IPv4NextLayer(p.Data),
+			NextLayerType: IPv6NextLayer(p.Data),
 		}
 		p.Layers = append(p.Layers, layer)
 		return nil
 	}
 	return fmt.Errorf("unknown layer")
+}
+
+func (p *Packet) LazyLayers() error {
+	dataIndex := p.Layers[0].DataEnd
+	nextLayer := p.Layers[0].NextLayerType
+	for dataIndex < len(p.Data) {
+		switch nextLayer {
+		case LayerTypeICMPv4:
+			layer := &Layer{
+				Type:          LayerTypeICMPv4,
+				DataStart:     dataIndex,
+				DataEnd:       dataIndex + 8,
+				NextLayerType: LayerTypePayload,
+			}
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
+			nextLayer = layer.NextLayerType
+		case LayerTypeICMPv6:
+			layer := &Layer{
+				Type:          LayerTypeICMPv6,
+				DataStart:     dataIndex,
+				DataEnd:       dataIndex + 4,
+				NextLayerType: LayerTypePayload,
+			}
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
+			nextLayer = layer.NextLayerType
+		case LayerTypeTCP:
+			layer := &Layer{
+				Type:          LayerTypeTCP,
+				DataStart:     dataIndex,
+				DataEnd:       dataIndex + 20,
+				NextLayerType: LayerTypePayload,
+			}
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
+			nextLayer = layer.NextLayerType
+		case LayerTypeUDP:
+			layer := &Layer{
+				Type:          LayerTypeUDP,
+				DataStart:     dataIndex,
+				DataEnd:       dataIndex + 8,
+				NextLayerType: LayerTypePayload,
+			}
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
+			nextLayer = layer.NextLayerType
+		case LayerTypePayload:
+			layer := &Layer{
+				Type:          LayerTypePayload,
+				NextLayerType: LayerTypeEnd,
+				DataStart:     dataIndex,
+				DataEnd:       len(p.Data),
+			}
+			p.Layers = append(p.Layers, layer)
+			dataIndex = layer.DataEnd
+			nextLayer = layer.NextLayerType
+		}
+	}
+	return nil
 }
 
 func (p *Packet) Parse() error {
@@ -479,14 +559,16 @@ func (p *Packet) FillICMPv4Checksum() error {
 }
 
 func (p *Packet) FillICMPv6Checksum() error {
-	layer := p.GetLayerByType(LayerTypeIPv6)
-	if layer == nil {
-		return fmt.Errorf("no %s layer", LayerTypeIPv6)
-	}
-	ip := layer.ParsedLayer.(*layers.IPv6)
-	ipcsum := IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+	// layer := p.GetLayerByType(LayerTypeIPv6)
+	// if layer == nil {
+	// 	return fmt.Errorf("no %s layer", LayerTypeIPv6)
+	// }
+	// ip := layer.Parse(p).(*layers.IPv6)
+	// log.Printf("%+v", ip)
+	// ipcsum := IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+	ipcsum := p.GetIPChecksum()
 	// log.Printf("ipcsum %d", ipcsum)
-	layer = p.GetLayerByType(LayerTypeICMPv6)
+	layer := p.GetLayerByType(LayerTypeICMPv6)
 	if layer == nil {
 		return fmt.Errorf("no %s layer", LayerTypeICMPv6)
 	}
@@ -503,12 +585,12 @@ func (p *Packet) GetIPChecksum() uint32 {
 	var ipcsum uint32
 	iplayer := p.GetLayerByType(LayerTypeIPv4)
 	if iplayer != nil {
-		ip := iplayer.ParsedLayer.(*layers.IPv4)
-		ipcsum = IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+		// ip := iplayer.ParsedLayer.(*layers.IPv4)
+		ipcsum = IPHeaderChecksum(iplayer.GetSrc(p), iplayer.GetDst(p))
 	} else {
 		iplayer = p.GetLayerByType(LayerTypeIPv6)
-		ip := iplayer.ParsedLayer.(*layers.IPv6)
-		ipcsum = IPHeaderChecksum(ip.SrcIP, ip.DstIP)
+		// ip := iplayer.ParsedLayer.(*layers.IPv6)
+		ipcsum = IPHeaderChecksum(iplayer.GetSrc(p), iplayer.GetDst(p))
 	}
 	return ipcsum
 }

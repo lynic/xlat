@@ -5,6 +5,9 @@ import (
 )
 
 func ConvertPacket(p *xlat.Packet) (*xlat.Packet, error) {
+	if len(p.Layers) == 1 {
+		p.LazyLayers()
+	}
 	var err error
 	for i := len(p.Layers) - 1; i >= 0; i-- {
 		switch p.Layers[i].Type {
@@ -31,7 +34,9 @@ func ConvertPacket(p *xlat.Packet) (*xlat.Packet, error) {
 		}
 	}
 	// reparse packet
-	p.Parse()
+	// p.Parse()
+	p.LazyParse()
+	p.LazyLayers()
 	// p.Print()
 	p.FillTCPChecksum()
 	p.FillUDPChecksum()

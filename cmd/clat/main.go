@@ -15,15 +15,21 @@ import (
 func HandlePacket(data []byte) {
 	// log.Printf("new packet %+v", inpkt)
 	pkt := xlat.NewPacket(data)
-	pkt.Parse()
+	// pkt.Parse()
+	err := pkt.LazyParse()
+	if err != nil {
+		log.Printf("lazyparse failed %s", err.Error())
+		return
+	}
 	if pkt.Layers[0].Type == xlat.LayerTypeIPv6 {
-		layer := pkt.Layers[0].ParsedLayer.(*layers.IPv6)
+		layer := pkt.Layers[0].Parse(pkt).(*layers.IPv6)
 		if !xlat.ConfigVar.Clat.Src.Contains(layer.DstIP) {
 			return
 		}
 		// log.Printf("[in] %s -> %s %s", layer.SrcIP.String(), layer.DstIP.String(), layer.NextLayerType())
 		// pkt.Print()
 		// log.Print("ip6 to ip4")
+		// pkt.LazyLayers()
 		npkt, err := clat.ConvertPacket(pkt)
 		if err != nil {
 			log.Printf("%v", err)
@@ -44,6 +50,7 @@ func HandlePacket(data []byte) {
 		// log.Print("ip4 to ip6")
 		// layer := pkt.Layers[0].ParsedLayer.(*layers.IPv4)
 		// log.Printf("[in] %s -> %s %s", layer.SrcIP.String(), layer.DstIP.String(), layer.NextLayerType())
+		// pkt.LazyLayers()
 		npkt, err := clat.ConvertPacket(pkt)
 		if err != nil {
 			log.Printf("%v", err)

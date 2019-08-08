@@ -1,8 +1,6 @@
 package xlat
 
 import (
-	"net"
-
 	"github.com/google/gopacket/layers"
 )
 
@@ -42,7 +40,28 @@ func ComputeChecksum(headerAndPayload []byte, headerProtocol layers.IPProtocol, 
 	return CalcChecksum(headerAndPayload, csum)
 }
 
-func IPHeaderChecksum(SrcIP, DstIP net.IP) (csum uint32) {
+// func IPHeaderChecksum(SrcIP, DstIP net.IP) (csum uint32) {
+// 	if len(SrcIP) == 4 {
+// 		// ip4
+// 		csum += (uint32(SrcIP[0]) + uint32(SrcIP[2])) << 8
+// 		csum += uint32(SrcIP[1]) + uint32(SrcIP[3])
+// 		csum += (uint32(DstIP[0]) + uint32(DstIP[2])) << 8
+// 		csum += uint32(DstIP[1]) + uint32(DstIP[3])
+// 		// return csum
+// 	} else {
+// 		// ip6
+// 		for i := 0; i < 16; i += 2 {
+// 			csum += uint32(SrcIP[i]) << 8
+// 			csum += uint32(SrcIP[i+1])
+// 			csum += uint32(DstIP[i]) << 8
+// 			csum += uint32(DstIP[i+1])
+// 		}
+// 		// return csum
+// 	}
+// 	return csum
+// }
+
+func IPHeaderChecksum(SrcIP, DstIP []byte) (csum uint32) {
 	if len(SrcIP) == 4 {
 		// ip4
 		csum += (uint32(SrcIP[0]) + uint32(SrcIP[2])) << 8
