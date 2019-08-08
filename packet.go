@@ -65,6 +65,64 @@ func NewPacket(data []byte) *Packet {
 	return pkt
 }
 
+func (l *Layer) Parse(p *Packet) gopacket.Layer {
+	if l.ParsedLayer != nil {
+		return l.ParsedLayer
+	}
+	var packet gopacket.Packet
+	switch l.Type {
+	case LayerTypeIPv4:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeIPv4)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.IPv4)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypeIPv6:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeIPv6)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.IPv6)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypeICMPv4:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeICMPv4)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.ICMPv4)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypeICMPv6:
+		packet = ParsePacket(p.Data[l.DataStart:], layers.LayerTypeICMPv6)
+		if packet == nil {
+			return nil
+		}
+		layer := packet.Layers()[0].(*layers.ICMPv6)
+		if layer == nil {
+			return nil
+		}
+		l.ParsedLayer = layer
+		l.DataEnd = l.DataStart + len(layer.Contents)
+	case LayerTypePayload:
+		l.DataEnd = len(p.Data)
+		l.ParsedLayer = nil
+	}
+
+	return l.ParsedLayer
+}
+
 func (p *Packet) ParseLayer(index int) error {
 	return nil
 }
@@ -75,25 +133,34 @@ func (p *Packet) ParseLayer(index int) error {
 
 func (p *Packet) Parse() error {
 	dataIndex := 0
-	layerIndex := 0
+	// layerIndex := 0
 	nextLayer := LayerTypeEthernet
 	p.Layers = make([]*Layer, 0)
-	packet := ParsePacket(p.Data, layers.LayerTypeEthernet)
+	// packet := ParsePacket(p.Data, layers.LayerTypeEthernet)
 	for {
 		switch nextLayer {
 		case LayerTypeEthernet:
-			if len(p.Data[dataIndex:]) < HeaderIPv4Length {
+			if len(p.Data[dataIndex:]) < HeaderEthernetLength {
 				return fmt.Errorf("invalid packet length for ip layer")
 			}
-
+			layer := &Layer{
+				Type:      LayerTypeEthernet,
+				DataStart: dataIndex,
+			}
+			player := layer.Parse(p)
+			if player == nil {
+				// return fmt.Errorf("failed to parse %s", layer.Type)
+				nextLayer = LayerTypeIPv4
+				continue
+			}
 			// if layerIndex == 0 {
 			// 	packet = ParsePacket(p.Data, layers.LayerTypeEthernet)
-			if packet == nil {
-				return fmt.Errorf("failed to parse packet")
-			}
+			// if packet == nil {
+			// 	return fmt.Errorf("failed to parse packet")
+			// }
 			// }
 
-			ethLayer := packet.Layers()[layerIndex].(*layers.Ethernet)
+			ethLayer := player.(*layers.Ethernet)
 			// log.Printf("ethlayer %+v", ethLayer)
 			// if layers.EthernetTypeMetadata[ethLayer.EthernetType].Name == "UnknownEthernetType" {
 			if ethLayer.NextLayerType() != layers.LayerTypeIPv4 && ethLayer.NextLayerType() != layers.LayerTypeIPv6 {
@@ -110,29 +177,43 @@ func (p *Packet) Parse() error {
 			default:
 				nextLayer = LayerTypePayload
 			}
-			layer := &Layer{
-				Type:          LayerTypeEthernet,
-				NextLayerType: nextLayer,
-				DataStart:     dataIndex,
-				DataEnd:       dataIndex + len(ethLayer.Contents),
-				ParsedLayer:   ethLayer,
-			}
+			layer.NextLayerType = nextLayer
+			// layer.DataEnd = dataIndex + len(ethLayer.Contents)
+			// layer.ParsedLayer = ethLayer
+			// layer := &Layer{
+			// 	Type:          LayerTypeEthernet,
+			// 	NextLayerType: nextLayer,
+			// 	DataStart:     dataIndex,
+			// 	DataEnd:       dataIndex + len(ethLayer.Contents),
+			// 	ParsedLayer:   ethLayer,
+			// }
 			p.Layers = append(p.Layers, layer)
 
 			dataIndex = layer.DataEnd
-			layerIndex++
+			// layerIndex++
 			continue
 		case LayerTypeIPv4:
 			if len(p.Data[dataIndex:]) < HeaderIPv4Length {
 				return fmt.Errorf("invalid packet length for ip layer")
 			}
-			if layerIndex == 0 {
-				packet = ParsePacket(p.Data, layers.LayerTypeIPv4)
-				if packet == nil {
-					return fmt.Errorf("failed to parse packet")
-				}
+			// if layerIndex == 0 {
+			// 	packet = ParsePacket(p.Data, layers.LayerTypeIPv4)
+			// 	if packet == nil {
+			// 		return fmt.Errorf("failed to parse packet")
+			// 	}
+			// }
+			layer := &Layer{
+				Type:      LayerTypeIPv4,
+				DataStart: dataIndex,
 			}
-			ipLayer := packet.Layers()[layerIndex].(*layers.IPv4)
+			player := layer.Parse(p)
+			if player == nil {
+				// return fmt.Errorf("failed to parse %s", layer.Type)
+				nextLayer = LayerTypeIPv6
+				continue
+			}
+
+			ipLayer := player.(*layers.IPv4)
 			if ipLayer.Version != 4 {
 				nextLayer = LayerTypeIPv6
 				continue
@@ -147,29 +228,39 @@ func (p *Packet) Parse() error {
 			default:
 				nextLayer = LayerTypePayload
 			}
-			layer := &Layer{
-				Type:          LayerTypeIPv4,
-				NextLayerType: nextLayer,
-				DataStart:     dataIndex,
-				DataEnd:       dataIndex + len(ipLayer.Contents),
-				ParsedLayer:   ipLayer,
-			}
+			layer.NextLayerType = nextLayer
+			// layer := &Layer{
+			// 	Type:          LayerTypeIPv4,
+			// 	NextLayerType: nextLayer,
+			// 	DataStart:     dataIndex,
+			// 	DataEnd:       dataIndex + len(ipLayer.Contents),
+			// 	ParsedLayer:   ipLayer,
+			// }
 			p.Layers = append(p.Layers, layer)
 
 			dataIndex = layer.DataEnd
-			layerIndex++
+			// layerIndex++
 			continue
 		case LayerTypeIPv6:
 			if len(p.Data[dataIndex:]) < HeaderIPv6Length {
 				return fmt.Errorf("invalid packet length for ip6 layer")
 			}
-			if layerIndex == 0 {
-				packet = ParsePacket(p.Data, layers.LayerTypeIPv6)
-				if packet == nil {
-					return fmt.Errorf("failed to parse packet")
-				}
+			// if layerIndex == 0 {
+			// 	packet = ParsePacket(p.Data, layers.LayerTypeIPv6)
+			// 	if packet == nil {
+			// 		return fmt.Errorf("failed to parse packet")
+			// 	}
+			// }
+			layer := &Layer{
+				Type:      LayerTypeIPv6,
+				DataStart: dataIndex,
 			}
-			ip6Layer := packet.Layers()[layerIndex].(*layers.IPv6)
+			player := layer.Parse(p)
+			if player == nil {
+				return fmt.Errorf("failed to parse %s", layer.Type)
+			}
+
+			ip6Layer := player.(*layers.IPv6)
 			if ip6Layer.Version != 6 {
 				return fmt.Errorf("packet is not eth/ip/ip6")
 			}
@@ -185,46 +276,67 @@ func (p *Packet) Parse() error {
 			default:
 				nextLayer = LayerTypePayload
 			}
-			layer := &Layer{
-				Type:          LayerTypeIPv6,
-				NextLayerType: nextLayer,
-				DataStart:     dataIndex,
-				DataEnd:       dataIndex + len(ip6Layer.Contents),
-				ParsedLayer:   ip6Layer,
-			}
+			layer.NextLayerType = nextLayer
+			// layer := &Layer{
+			// 	Type:          LayerTypeIPv6,
+			// 	NextLayerType: nextLayer,
+			// 	DataStart:     dataIndex,
+			// 	DataEnd:       dataIndex + len(ip6Layer.Contents),
+			// 	ParsedLayer:   ip6Layer,
+			// }
 
 			p.Layers = append(p.Layers, layer)
 
 			dataIndex = layer.DataEnd
-			layerIndex++
+			// layerIndex++
 			continue
 		case LayerTypeICMPv4:
-			icmpLayer := packet.Layers()[layerIndex].(*layers.ICMPv4)
-			nextLayer = LayerTypePayload
 			layer := &Layer{
-				Type:          LayerTypeICMPv4,
-				NextLayerType: nextLayer,
-				DataStart:     dataIndex,
-				DataEnd:       dataIndex + len(icmpLayer.Contents),
-				ParsedLayer:   icmpLayer,
+				Type:      LayerTypeICMPv4,
+				DataStart: dataIndex,
 			}
+			player := layer.Parse(p)
+			if player == nil {
+				return fmt.Errorf("failed to parse %s", layer.Type)
+			}
+
+			// icmpLayer := player.(*layers.ICMPv4)
+			nextLayer = LayerTypePayload
+			layer.NextLayerType = nextLayer
+			// layer := &Layer{
+			// 	Type:          LayerTypeICMPv4,
+			// 	NextLayerType: nextLayer,
+			// 	DataStart:     dataIndex,
+			// 	DataEnd:       dataIndex + len(icmpLayer.Contents),
+			// 	ParsedLayer:   icmpLayer,
+			// }
 			p.Layers = append(p.Layers, layer)
 			dataIndex = layer.DataEnd
-			layerIndex++
+			// layerIndex++
 			continue
 		case LayerTypeICMPv6:
-			icmp6Layer := packet.Layers()[layerIndex].(*layers.ICMPv6)
-			nextLayer = LayerTypePayload
 			layer := &Layer{
-				Type:          LayerTypeICMPv6,
-				NextLayerType: nextLayer,
-				DataStart:     dataIndex,
-				DataEnd:       dataIndex + len(icmp6Layer.Contents),
-				ParsedLayer:   icmp6Layer,
+				Type:      LayerTypeICMPv6,
+				DataStart: dataIndex,
 			}
+			player := layer.Parse(p)
+			if player == nil {
+				return fmt.Errorf("failed to parse %s", layer.Type)
+			}
+
+			// icmp6Layer := player.(*layers.ICMPv6)
+			nextLayer = LayerTypePayload
+			layer.NextLayerType = nextLayer
+			// layer := &Layer{
+			// 	Type:          LayerTypeICMPv6,
+			// 	NextLayerType: nextLayer,
+			// 	DataStart:     dataIndex,
+			// 	DataEnd:       dataIndex + len(icmp6Layer.Contents),
+			// 	ParsedLayer:   icmp6Layer,
+			// }
 			p.Layers = append(p.Layers, layer)
 			dataIndex = layer.DataEnd
-			layerIndex++
+			// layerIndex++
 			continue
 		case LayerTypePayload:
 			layer := &Layer{
@@ -234,6 +346,8 @@ func (p *Packet) Parse() error {
 				DataEnd:       len(p.Data),
 			}
 			p.Layers = append(p.Layers, layer)
+			return nil
+		default:
 			return nil
 		}
 	}
@@ -249,6 +363,15 @@ func (p *Packet) GetLayerByType(layerType string) *Layer {
 		}
 	}
 	return nil
+}
+
+func (p *Packet) LayerIndex(layerType string) int {
+	for i := 0; i < len(p.Layers); i++ {
+		if p.Layers[i].Type == layerType {
+			return i
+		}
+	}
+	return 0
 }
 
 func (p *Packet) ReplaceLayer(oldLayerType string, layer *Layer, data []byte) error {
@@ -284,6 +407,15 @@ func (p *Packet) Print() {
 func (p *Packet) Taint() {
 	p.Layers = make([]*Layer, 0)
 }
+
+// func (p *Packet) FillIPChecksum() error {
+// 	layer := p.GetLayerByType(LayerTypeIPv4)
+// 	if layer == nil {
+// 		return fmt.Errorf("no %s layer", LayerTypeIPv4)
+// 	}
+
+// 	return nil
+// }
 
 func (p *Packet) FillICMPv4Checksum() error {
 	layer := p.GetLayerByType(LayerTypeICMPv4)
@@ -369,7 +501,11 @@ func (p *Packet) TestICMP4Checksum() error {
 // }
 
 func ParsePacket(data []byte, decoder gopacket.Decoder) gopacket.Packet {
-	packet := gopacket.NewPacket(data, decoder, gopacket.Default)
+	options := gopacket.DecodeOptions{
+		Lazy:   true,
+		NoCopy: true,
+	}
+	packet := gopacket.NewPacket(data, decoder, options)
 	if packet.Layers()[0].LayerType() != decoder {
 		return nil
 	}

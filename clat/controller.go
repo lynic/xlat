@@ -1,12 +1,8 @@
 package clat
 
-import (
-	"github.com/lab11/go-tuntap/tuntap"
-)
-
 //Controller xxx
 type Controller struct {
-	Device *tuntap.Interface
+	// Device *tuntap.Interface
 }
 
 // func (s *Controller) IPv6LayerToBytes(ipv6Layer *layers.IPv6) []byte {
