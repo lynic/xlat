@@ -81,7 +81,7 @@ func main() {
 		log.Printf("failed to init device")
 		return
 	}
-	blockSize := xlat.ConfigVar.Spec.MTU
+	blockSize := xlat.ConfigVar.Spec.MTU + 20
 	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)
 	i := 0
 	for true {

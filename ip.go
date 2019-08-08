@@ -104,16 +104,18 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 
 	ipv6Layer.SrcIP = ConfigVar.Clat.Src.IP
 	srcIP := ipv4Layer.GetSrc(p)
-	ipv6Layer.SrcIP[15] = srcIP[3]
-	ipv6Layer.SrcIP[14] = srcIP[2]
-	ipv6Layer.SrcIP[13] = srcIP[1]
-	ipv6Layer.SrcIP[12] = srcIP[0]
+	copy(ipv6Layer.SrcIP[12:], srcIP)
+	// ipv6Layer.SrcIP[15] = srcIP[3]
+	// ipv6Layer.SrcIP[14] = srcIP[2]
+	// ipv6Layer.SrcIP[13] = srcIP[1]
+	// ipv6Layer.SrcIP[12] = srcIP[0]
 	ipv6Layer.DstIP = ConfigVar.Clat.Dst.IP
 	dstIP := ipv4Layer.GetDst(p)
-	ipv6Layer.DstIP[15] = dstIP[3]
-	ipv6Layer.DstIP[14] = dstIP[2]
-	ipv6Layer.DstIP[13] = dstIP[1]
-	ipv6Layer.DstIP[12] = dstIP[0]
+	copy(ipv6Layer.DstIP[12:], dstIP)
+	// ipv6Layer.DstIP[15] = dstIP[3]
+	// ipv6Layer.DstIP[14] = dstIP[2]
+	// ipv6Layer.DstIP[13] = dstIP[1]
+	// ipv6Layer.DstIP[12] = dstIP[0]
 	// convert next protocol
 	// if ipv4Layer.Protocol(p) == layers.IPProtocolICMPv4 {
 	if ipv4Layer.Protocol(p) == 1 {
@@ -141,16 +143,18 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 
 	ipLayer.SrcIP = net.ParseIP("1.1.1.1").To4()
 	srcIP := layer.GetSrc(p)
-	ipLayer.SrcIP[3] = srcIP[15]
-	ipLayer.SrcIP[2] = srcIP[14]
-	ipLayer.SrcIP[1] = srcIP[13]
-	ipLayer.SrcIP[0] = srcIP[12]
+	copy(ipLayer.SrcIP, srcIP[12:16])
+	// ipLayer.SrcIP[3] = srcIP[15]
+	// ipLayer.SrcIP[2] = srcIP[14]
+	// ipLayer.SrcIP[1] = srcIP[13]
+	// ipLayer.SrcIP[0] = srcIP[12]
 	ipLayer.DstIP = net.ParseIP("1.1.1.1").To4()
 	dstIP := layer.GetDst(p)
-	ipLayer.DstIP[3] = dstIP[15]
-	ipLayer.DstIP[2] = dstIP[14]
-	ipLayer.DstIP[1] = dstIP[13]
-	ipLayer.DstIP[0] = dstIP[12]
+	copy(ipLayer.DstIP, dstIP[12:16])
+	// ipLayer.DstIP[3] = dstIP[15]
+	// ipLayer.DstIP[2] = dstIP[14]
+	// ipLayer.DstIP[1] = dstIP[13]
+	// ipLayer.DstIP[0] = dstIP[12]
 	// convert next protocol
 	// if layers.IPProtocol(layer.NextHeader(p)) == layers.IPProtocolICMPv6 {
 	if layer.NextHeader(p) == 58 {
@@ -163,11 +167,14 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	ipLayer.Length = uint16(HeaderIPv4Length + len(p.Data[layer.DataEnd:]))
 	// ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)
 	ipLayer.Contents = IPv4HeaderToBytes(ipLayer)
-	newData := make([]byte, len(p.Data)-20)
-	copy(newData, ipLayer.Contents)
-	copy(newData[len(ipLayer.Contents):], p.Data[layer.DataEnd:])
+	// newData := make([]byte, len(p.Data)-20)
+	// copy(newData, ipLayer.Contents)
+	// copy(newData[len(ipLayer.Contents):], p.Data[layer.DataEnd:])
 	// newData := append(ipLayer.Contents, p.Data[layer.DataEnd:]...)
-	p.Data = newData
+	// p.Data = newData
+	copy(p.Data, ipLayer.Contents)
+	copy(p.Data[len(ipLayer.Contents):], p.Data[layer.DataEnd:])
+	p.Data = p.Data[:len(p.Data)-20]
 	p.ReplaceIPLayer()
 	return p, nil
 }

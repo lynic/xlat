@@ -129,6 +129,10 @@ func (p *Packet) LazyLayers() error {
 			p.Layers = append(p.Layers, layer)
 			dataIndex = layer.DataEnd
 			nextLayer = layer.NextLayerType
+			// for debug
+			// player := layer.Parse(p).(*layers.TCP)
+			// p.Print()
+			// log.Printf("%+v", player.Options)
 		case LayerTypeUDP:
 			layer := &Layer{
 				Type:          LayerTypeUDP,
@@ -361,7 +365,7 @@ func (p *Packet) ReplaceIPLayer() {
 
 func (p *Packet) Print() {
 	for i := 0; i < len(p.Layers); i++ {
-		log.Printf("%+v\n%+v", p.Layers[i], p.Layers[i].ParsedLayer)
+		log.Printf("%+v\n%+v", p.Layers[i], p.Layers[i].Parse(p))
 	}
 	log.Printf("p.Data: %v", p.Data)
 	var packet gopacket.Packet
