@@ -77,16 +77,8 @@ func IPv6HeaderToBytes(ipv6 *layers.IPv6) []byte {
 }
 
 func IPv4HeaderToBytes(ip *layers.IPv4) []byte {
-	// optionLength := ip.getIPv4OptionSize()
 	bytes := make([]byte, 20)
-	// bytes, err := b.PrependBytes(20 + int(optionLength))
-	// if err != nil {
-	// 	return err
-	// }
-	// if opts.FixLengths {
 	ip.IHL = 5
-	// ip.Length = uint16(20)
-	// }
 	bytes[0] = (ip.Version << 4) | ip.IHL
 	bytes[1] = ip.TOS
 	binary.BigEndian.PutUint16(bytes[2:], ip.Length)
@@ -97,66 +89,39 @@ func IPv4HeaderToBytes(ip *layers.IPv4) []byte {
 	binary.BigEndian.PutUint16(bytes[6:], ff)
 	bytes[8] = ip.TTL
 	bytes[9] = byte(ip.Protocol)
-	// if err := ip.AddressTo4(); err != nil {
-	// 	return err
-	// }
+
 	copy(bytes[12:16], ip.SrcIP)
 	copy(bytes[16:20], ip.DstIP)
-
-	// curLocation := 20
-	// // Now, we will encode the options
-	// for _, opt := range ip.Options {
-	// 	switch opt.OptionType {
-	// 	case 0:
-	// 		// this is the end of option lists
-	// 		bytes[curLocation] = 0
-	// 		curLocation++
-	// 	case 1:
-	// 		// this is the padding
-	// 		bytes[curLocation] = 1
-	// 		curLocation++
-	// 	default:
-	// 		bytes[curLocation] = opt.OptionType
-	// 		bytes[curLocation+1] = opt.OptionLength
-
-	// 		// sanity checking to protect us from buffer overrun
-	// 		if len(opt.OptionData) > int(opt.OptionLength-2) {
-	// 			return errors.New("option length is smaller than length of option data")
-	// 		}
-	// 		copy(bytes[curLocation+2:curLocation+int(opt.OptionLength)], opt.OptionData)
-	// 		curLocation += int(opt.OptionLength)
-	// 	}
-	// }
-
-	// if opts.ComputeChecksums {
 	ip.Checksum = IPChecksum(bytes)
-	// }
 	binary.BigEndian.PutUint16(bytes[10:], ip.Checksum)
 	return bytes
 }
 
 func IP4ToIP6(p *Packet) (*Packet, error) {
-	ipv4Layer := p.GetLayerByType(LayerTypeIPv4)
-	ipLayer := ipv4Layer.Parse(p).(*layers.IPv4)
+	ipv4Layer := p.GetLayerByType(LayerTypeIPv4).ToIPLayer()
+	// ipLayer := ipv4Layer.Parse(p).(*layers.IPv4)
 	ipv6Layer := &layers.IPv6{}
 
 	ipv6Layer.SrcIP = ConfigVar.Clat.Src.IP
-	ipv6Layer.SrcIP[15] = ipLayer.SrcIP[3]
-	ipv6Layer.SrcIP[14] = ipLayer.SrcIP[2]
-	ipv6Layer.SrcIP[13] = ipLayer.SrcIP[1]
-	ipv6Layer.SrcIP[12] = ipLayer.SrcIP[0]
+	srcIP := ipv4Layer.GetSrc(p)
+	ipv6Layer.SrcIP[15] = srcIP[3]
+	ipv6Layer.SrcIP[14] = srcIP[2]
+	ipv6Layer.SrcIP[13] = srcIP[1]
+	ipv6Layer.SrcIP[12] = srcIP[0]
 	ipv6Layer.DstIP = ConfigVar.Clat.Dst.IP
-	ipv6Layer.DstIP[15] = ipLayer.DstIP[3]
-	ipv6Layer.DstIP[14] = ipLayer.DstIP[2]
-	ipv6Layer.DstIP[13] = ipLayer.DstIP[1]
-	ipv6Layer.DstIP[12] = ipLayer.DstIP[0]
+	dstIP := ipv4Layer.GetDst(p)
+	ipv6Layer.DstIP[15] = dstIP[3]
+	ipv6Layer.DstIP[14] = dstIP[2]
+	ipv6Layer.DstIP[13] = dstIP[1]
+	ipv6Layer.DstIP[12] = dstIP[0]
 	// convert next protocol
-	if ipLayer.Protocol == layers.IPProtocolICMPv4 {
+	// if ipv4Layer.Protocol(p) == layers.IPProtocolICMPv4 {
+	if ipv4Layer.Protocol(p) == 1 {
 		ipv6Layer.NextHeader = layers.IPProtocolICMPv6
 	} else {
-		ipv6Layer.NextHeader = ipLayer.Protocol
+		ipv6Layer.NextHeader = layers.IPProtocol(ipv4Layer.Protocol(p))
 	}
-	ipv6Layer.HopLimit = ipLayer.TTL
+	ipv6Layer.HopLimit = ipv4Layer.TTL(p)
 	ipv6Layer.Version = 6
 	ipv6Layer.Length = uint16(len(p.Data[ipv4Layer.DataEnd:]))
 	ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)
@@ -168,27 +133,29 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 }
 
 func IP6ToIP4(p *Packet) (*Packet, error) {
-	layer := p.GetLayerByType(LayerTypeIPv6)
-	ip6Layer := layer.Parse(p).(*layers.IPv6)
+	layer := p.GetLayerByType(LayerTypeIPv6).ToIP6Layer()
+	// ip6Layer := layer.Parse(p).(*layers.IPv6)
 	ipLayer := &layers.IPv4{}
 
 	ipLayer.SrcIP = net.ParseIP("1.1.1.1").To4()
-	ipLayer.SrcIP[3] = ip6Layer.SrcIP[15]
-	ipLayer.SrcIP[2] = ip6Layer.SrcIP[14]
-	ipLayer.SrcIP[1] = ip6Layer.SrcIP[13]
-	ipLayer.SrcIP[0] = ip6Layer.SrcIP[12]
+	srcIP := layer.GetSrc(p)
+	ipLayer.SrcIP[3] = srcIP[15]
+	ipLayer.SrcIP[2] = srcIP[14]
+	ipLayer.SrcIP[1] = srcIP[13]
+	ipLayer.SrcIP[0] = srcIP[12]
 	ipLayer.DstIP = net.ParseIP("1.1.1.1").To4()
-	ipLayer.DstIP[3] = ip6Layer.DstIP[15]
-	ipLayer.DstIP[2] = ip6Layer.DstIP[14]
-	ipLayer.DstIP[1] = ip6Layer.DstIP[13]
-	ipLayer.DstIP[0] = ip6Layer.DstIP[12]
+	dstIP := layer.GetDst(p)
+	ipLayer.DstIP[3] = dstIP[15]
+	ipLayer.DstIP[2] = dstIP[14]
+	ipLayer.DstIP[1] = dstIP[13]
+	ipLayer.DstIP[0] = dstIP[12]
 	// convert next protocol
-	if ip6Layer.NextHeader == layers.IPProtocolICMPv6 {
+	if layers.IPProtocol(layer.NextHeader(p)) == layers.IPProtocolICMPv6 {
 		ipLayer.Protocol = layers.IPProtocolICMPv4
 	} else {
-		ipLayer.Protocol = ip6Layer.NextHeader
+		ipLayer.Protocol = layers.IPProtocol(layer.NextHeader(p))
 	}
-	ipLayer.TTL = ip6Layer.HopLimit
+	ipLayer.TTL = layer.HopLimit(p)
 	ipLayer.Version = 4
 	ipLayer.Length = uint16(HeaderIPv4Length + len(p.Data[layer.DataEnd:]))
 	// ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)

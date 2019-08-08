@@ -5,13 +5,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os/exec"
+	"strings"
 
-	"github.com/lab11/go-tuntap/tuntap"
+	"github.com/songgao/water"
 )
 
 type XlatConfig struct {
 	// DeviceName string
-	device *tuntap.Interface
+	device *water.Interface
 	Spec   *XlatConfigSpec
 	Clat   *ClatConfig
 }
@@ -24,7 +26,9 @@ type ClatConfig struct {
 }
 
 type XlatConfigSpec struct {
-	DeviceName string `json:"device"`
+	DeviceName string   `json:"device"`
+	MTU        int      `json:"mtu"`
+	PostCMD    []string `json:"post_cmd"`
 	Clat       *struct {
 		Src string `json:"src"`
 		Dst string `json:"dst"`
@@ -43,16 +47,44 @@ type XlatConfigSpec struct {
 
 var ConfigVar *XlatConfig
 
-func (c *XlatConfig) Device() *tuntap.Interface {
+// func (c *XlatConfig) Device() *tuntap.Interface {
+// 	if c.device != nil {
+// 		return c.device
+// 	}
+// 	dev, err := tuntap.Open(c.Spec.DeviceName, tuntap.DevTun, false)
+// 	if err != nil {
+// 		log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
+// 		return nil
+// 	}
+// 	c.device = dev
+// 	return c.device
+// }
+
+func (c *XlatConfig) Device() *water.Interface {
 	if c.device != nil {
 		return c.device
 	}
-	dev, err := tuntap.Open(c.Spec.DeviceName, tuntap.DevTun, false)
+	deviceConfig := water.Config{
+		DeviceType: water.TUN,
+	}
+	deviceConfig.Name = c.Spec.DeviceName
+	deviceConfig.MultiQueue = true
+	dev, err := water.New(deviceConfig)
 	if err != nil {
 		log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
 		return nil
 	}
 	c.device = dev
+	if c.Spec.PostCMD != nil {
+		for _, cmdStr := range c.Spec.PostCMD {
+			scmd := strings.Split(cmdStr, " ")
+			cmd := exec.Command(scmd[0], scmd[1:]...)
+			err := cmd.Run()
+			if err != nil {
+				log.Printf("Failed to execute '%s': %s", cmdStr, err.Error())
+			}
+		}
+	}
 	return c.device
 }
 
