@@ -2,11 +2,60 @@ package xlat
 
 import (
 	"encoding/binary"
-	"log"
 	"net"
 
 	"github.com/google/gopacket/layers"
 )
+
+func IsIPv4Layer(data []byte) bool {
+	if len(data) < HeaderIPv4Length {
+		return false
+	}
+	if data[0]>>4 == 0x4 && int(binary.BigEndian.Uint16(data[2:4])) == len(data) && IPv4NextLayer(data) != LayerTypePayload {
+		return true
+	}
+	return false
+}
+
+func IPv4NextLayer(data []byte) string {
+	switch data[9] {
+	// case layers.IPProtocolICMPv4:
+	case 1:
+		return LayerTypeICMPv4
+	// case layers.IPProtocolTCP:
+	case 6:
+		return LayerTypeTCP
+	// case layers.IPProtocolUDP:
+	case 17:
+		return LayerTypeUDP
+	}
+	return LayerTypePayload
+}
+
+func IsIPv6Layer(data []byte) bool {
+	if len(data) < HeaderIPv6Length {
+		return false
+	}
+	if data[0]>>4 == 0x6 && int(binary.BigEndian.Uint16(data[4:6])) == len(data)-40 && IPv6NextLayer(data) != LayerTypePayload {
+		return true
+	}
+	return false
+}
+
+func IPv6NextLayer(data []byte) string {
+	switch data[6] {
+	// case layers.IPProtocolICMPv6:
+	case 58:
+		return LayerTypeICMPv6
+	// case layers.IPProtocolTCP:
+	case 6:
+		return LayerTypeTCP
+	// case layers.IPProtocolUDP:
+	case 17:
+		return LayerTypeUDP
+	}
+	return LayerTypePayload
+}
 
 func IPv6HeaderToBytes(ipv6 *layers.IPv6) []byte {
 	// pLen := len(ipv6.Payload)
@@ -125,7 +174,6 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 func IP6ToIP4(p *Packet) (*Packet, error) {
 	layer := p.GetLayerByType(LayerTypeIPv6)
 	ip6Layer := layer.ParsedLayer.(*layers.IPv6)
-	log.Printf("ip6 %+v", ip6Layer)
 	ipLayer := &layers.IPv4{}
 
 	ipLayer.SrcIP = net.ParseIP("1.1.1.1").To4()
@@ -149,41 +197,7 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	ipLayer.Length = uint16(HeaderIPv4Length + len(p.Data[layer.DataEnd:]))
 	// ipv6Layer.Contents = IPv6HeaderToBytes(ipv6Layer)
 	ipLayer.Contents = IPv4HeaderToBytes(ipLayer)
-	log.Printf("ip4 %+v", ipLayer)
 	newData := append(ipLayer.Contents, p.Data[layer.DataEnd:]...)
 	p.Data = newData
 	return p, nil
 }
-
-// func ConvertPacket(p *Packet) (*Packet, error) {
-// 	var err error
-// 	for i := len(p.Layers) - 1; i >= 0; i-- {
-// 		switch p.Layers[i].Type {
-// 		case LayerTypeICMPv4:
-// 			p, err = ICMP4ToICMP6(p)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		case LayerTypeIPv4:
-// 			p, err = IP4ToIP6(p)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		case LayerTypeICMPv6:
-// 			return nil, fmt.Errorf("unsupported packet")
-// 		case LayerTypeIPv6:
-// 			p, err = IP6ToIP4(p)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		}
-// 	}
-// 	// reparse packet
-// 	p.Parse()
-// 	// p.FillTCPChecksum()
-// 	// p.FillUDPChecksum()
-// 	p.FillICMPv6Checksum()
-// 	// p.FillICMPv4Checksum()
-// 	// p.FillIPChecksum()
-// 	return p, nil
-// }
