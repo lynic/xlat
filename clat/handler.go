@@ -33,15 +33,18 @@ func ConvertPacket(p *xlat.Packet) (*xlat.Packet, error) {
 			}
 		}
 	}
+	for i := len(p.Layers) - 1; i >= 0; i-- {
+		p.Layers[i].CalcChecksum(p)
+	}
 	// reparse packet
 	// p.Parse()
-	p.LazyParse()
-	p.LazyLayers()
+	// p.LazyParse()
+	// p.LazyLayers()
 	// p.Print()
-	p.FillTCPChecksum()
-	p.FillUDPChecksum()
-	p.FillICMPv6Checksum()
-	p.FillICMPv4Checksum()
+	// p.FillTCPChecksum()
+	// p.FillUDPChecksum()
+	// p.FillICMPv6Checksum()
+	// p.FillICMPv4Checksum()
 	// p.FillIPChecksum()
 	return p, nil
 }

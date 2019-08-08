@@ -163,11 +163,7 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 
 	newData := append(ipv6Layer.Contents, p.Data[ipv4Layer.DataEnd:]...)
 	p.Data = newData
-	// newLayer := &Layer{
-	// 	Type:      LayerTypeIPv6,
-	// 	DataStart: ipv4Layer.DataStart,
-	// }
-
+	p.ReplaceIPLayer()
 	return p, nil
 }
 
@@ -199,5 +195,6 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	ipLayer.Contents = IPv4HeaderToBytes(ipLayer)
 	newData := append(ipLayer.Contents, p.Data[layer.DataEnd:]...)
 	p.Data = newData
+	p.ReplaceIPLayer()
 	return p, nil
 }

@@ -25,7 +25,8 @@ func ICMPv6HeaderToBytes(i *layers.ICMPv6) []byte {
 }
 
 func ICMP4ToICMP6(p *Packet) (*Packet, error) {
-	icmpLayer := p.GetLayerByType(LayerTypeICMPv4)
+	layerIndex := p.LayerIndex(LayerTypeICMPv4)
+	icmpLayer := p.Layers[layerIndex]
 	// icmpv6Layer := &layers.ICMPv6{}
 	// pLayer := icmpLayer.ParsedLayer.(*layers.ICMPv4)
 	// switch pLayer.TypeCode.Type() {
@@ -44,11 +45,14 @@ func ICMP4ToICMP6(p *Packet) (*Packet, error) {
 	// clear checksum, TODO re-calc
 	p.Data[icmpLayer.DataStart+2] = 0
 	p.Data[icmpLayer.DataStart+3] = 0
+	icmpLayer.Type = LayerTypeICMPv6
+	p.Layers[layerIndex-1].NextLayerType = icmpLayer.Type
 	return p, nil
 }
 
 func ICMP6ToICMP4(p *Packet) (*Packet, error) {
-	icmpLayer := p.GetLayerByType(LayerTypeICMPv6)
+	layerIndex := p.LayerIndex(LayerTypeICMPv6)
+	icmpLayer := p.Layers[layerIndex]
 	// pLayer := icmpLayer.ParsedLayer.(*layers.ICMPv6)
 	// switch pLayer.TypeCode.Type() {
 	switch ICMPType(p.Data[icmpLayer.DataStart:]) {
@@ -64,6 +68,7 @@ func ICMP6ToICMP4(p *Packet) (*Packet, error) {
 	// clear checksum, TODO re-calc
 	p.Data[icmpLayer.DataStart+2] = 0
 	p.Data[icmpLayer.DataStart+3] = 0
-
+	icmpLayer.Type = LayerTypeICMPv4
+	p.Layers[layerIndex-1].NextLayerType = icmpLayer.Type
 	return p, nil
 }
