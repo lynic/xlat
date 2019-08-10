@@ -16,7 +16,7 @@ Config route rules
 # ip route add 9.9.9.9/32 via 192.168.8.1
 # ip -6 route add 2018::/64 dev tun0
 ip -6 addr add 2019::9.9.9.9/64 dev eth0
-ip -6 addr add 2019::2/64 dev eth0
+# ip -6 addr add 2019::2/64 dev eth0
 ```
 
 Clat Ping Test
