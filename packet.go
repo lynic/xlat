@@ -52,6 +52,7 @@ type Packet struct {
 	// Buffer    []byte
 	DataStart int
 	DataEnd   int
+	Stateful  bool
 }
 
 func NewPacket(data []byte) *Packet {
@@ -177,16 +178,36 @@ func (p *Packet) LazyLayers() error {
 	return nil
 }
 
-func (p *Packet) GetSrcTuple() (ip net.IP, port uint16) {
+func (p *Packet) GetSrcTuple() *NATuple {
+	ipt := &NATuple{}
 	for i := 0; i < len(p.Layers); i++ {
 		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
-			ip = net.IP(p.Layers[i].GetSrc(p))
+			ipt.IP = net.IP(p.Layers[i].GetSrc(p))
 		}
-		if p.Layers[i].Type == LayerTypeICMPv4 || p.Layers[i].Type == LayerTypeICMPv6 {
-			// port = binary.LittleEndian.Uint16(p.Layers[i].)
+		if p.Layers[i].Type == LayerTypeICMPv4 ||
+			p.Layers[i].Type == LayerTypeICMPv6 ||
+			p.Layers[i].Type == LayerTypeTCP ||
+			p.Layers[i].Type == LayerTypeUDP {
+			ipt.Port = p.Layers[i].GetSrcPort(p)
 		}
 	}
-	return ip, port
+	return ipt
+}
+
+func (p *Packet) GetDstTuple() *NATuple {
+	ipt := &NATuple{}
+	for i := 0; i < len(p.Layers); i++ {
+		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
+			ipt.IP = net.IP(p.Layers[i].GetDst(p))
+		}
+		if p.Layers[i].Type == LayerTypeICMPv4 ||
+			p.Layers[i].Type == LayerTypeICMPv6 ||
+			p.Layers[i].Type == LayerTypeTCP ||
+			p.Layers[i].Type == LayerTypeUDP {
+			ipt.Port = p.Layers[i].GetDstPort(p)
+		}
+	}
+	return ipt
 }
 
 func (p *Packet) GetLayerByType(layerType string) *Layer {
@@ -240,6 +261,7 @@ func (p *Packet) Print() {
 		p.LazyLayers()
 	}
 	log.Printf("Packet start %d end %d layers %+v", p.DataStart, p.DataEnd, p.Layers)
+	// log.Printf("pkt %+v", p)
 	for i := 0; i < len(p.Layers); i++ {
 		log.Printf("%+v", p.Layers[i])
 	}
@@ -257,6 +279,10 @@ func (p *Packet) Print() {
 // func (p *Packet) Taint() {
 // 	p.Layers = make([]*Layer, 0)
 // }
+
+func (p *Packet) GetData(start int) []byte {
+	return p.Data[start:p.DataEnd]
+}
 
 func (p *Packet) GetIPChecksum() uint32 {
 	if p.ipcsum != 0 {

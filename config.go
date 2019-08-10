@@ -17,7 +17,6 @@ type XlatConfig struct {
 	Spec   *XlatConfigSpec
 	Clat   *ClatConfig
 	Plat   *PlatConfig
-	IsPlat bool
 }
 
 type ClatConfig struct {
@@ -69,9 +68,35 @@ var ConfigVar *XlatConfig
 // }
 
 func (c *XlatConfig) Device() *water.Interface {
-	if c.device != nil {
-		return c.device
-	}
+	// if c.device != nil {
+	// 	return c.device
+	// }
+	// deviceConfig := water.Config{
+	// 	DeviceType: water.TUN,
+	// }
+	// deviceConfig.Name = c.Spec.DeviceName
+	// deviceConfig.MultiQueue = true
+	// dev, err := water.New(deviceConfig)
+	// if err != nil {
+	// 	log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
+	// 	return nil
+	// }
+	// c.device = dev
+	// if c.Spec.PostCMD != nil {
+	// 	for _, cmdStr := range c.Spec.PostCMD {
+	// 		scmd := strings.Split(cmdStr, " ")
+	// 		cmd := exec.Command(scmd[0], scmd[1:]...)
+	// 		err := cmd.Run()
+	// 		if err != nil {
+	// 			log.Printf("Failed to execute '%s': %s", cmdStr, err.Error())
+	// 		}
+	// 		log.Printf("Executed '%s'", cmdStr)
+	// 	}
+	// }
+	return c.device
+}
+
+func (c *XlatConfig) InitDevice() error {
 	deviceConfig := water.Config{
 		DeviceType: water.TUN,
 	}
@@ -79,8 +104,8 @@ func (c *XlatConfig) Device() *water.Interface {
 	deviceConfig.MultiQueue = true
 	dev, err := water.New(deviceConfig)
 	if err != nil {
-		log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
-		return nil
+		// log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
+		return err
 	}
 	c.device = dev
 	if c.Spec.PostCMD != nil {
@@ -94,7 +119,7 @@ func (c *XlatConfig) Device() *water.Interface {
 			log.Printf("Executed '%s'", cmdStr)
 		}
 	}
-	return c.device
+	return nil
 }
 
 func LoadConfig(configPath string) (*XlatConfig, error) {
@@ -110,8 +135,13 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		return nil, err
 	}
 	ConfigVar = &XlatConfig{
-		Spec:   configSpec,
-		IsPlat: false,
+		Spec: configSpec,
+	}
+	log.Printf("Initializing device %s", ConfigVar.Spec.DeviceName)
+	err = ConfigVar.InitDevice()
+	if err != nil {
+		log.Printf("Failed to load device %s: %s", ConfigVar.Spec.DeviceName, err.Error())
+		return nil, err
 	}
 	if configSpec.Clat != nil {
 		clatConfig := &ClatConfig{}
@@ -145,6 +175,12 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		}
 		platConfig.Dst = platDstNet
 		ConfigVar.Plat = platConfig
+		Ctrl = &Controller{}
+		err = Ctrl.Init()
+		if err != nil {
+			log.Printf("Failed to init Controller: %s", err.Error())
+			return nil, err
+		}
 	}
 	return ConfigVar, nil
 }

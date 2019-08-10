@@ -2,6 +2,7 @@ package xlat
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
 
 	"github.com/google/gopacket/layers"
@@ -104,19 +105,40 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 	ipv6Layer := &layers.IPv6{}
 
 	// ipv6Layer.SrcIP = ConfigVar.Clat.Src.IP
-	ipv6Layer.SrcIP = make(net.IP, net.IPv6len)
-	copy(ipv6Layer.SrcIP, ConfigVar.Clat.Src.IP)
-	srcIP := ipv4Layer.GetSrc(p)
-	copy(ipv6Layer.SrcIP[12:], srcIP)
+	if p.Stateful {
+		ipv6Layer.SrcIP = make(net.IP, net.IPv6len)
+		copy(ipv6Layer.SrcIP, ConfigVar.Plat.Dst.IP)
+		srcIP := ipv4Layer.GetSrc(p)
+		copy(ipv6Layer.SrcIP[12:], srcIP)
+	} else {
+		ipv6Layer.SrcIP = make(net.IP, net.IPv6len)
+		copy(ipv6Layer.SrcIP, ConfigVar.Clat.Src.IP)
+		srcIP := ipv4Layer.GetSrc(p)
+		copy(ipv6Layer.SrcIP[12:], srcIP)
+	}
 	// ipv6Layer.SrcIP[15] = srcIP[3]
 	// ipv6Layer.SrcIP[14] = srcIP[2]
 	// ipv6Layer.SrcIP[13] = srcIP[1]
 	// ipv6Layer.SrcIP[12] = srcIP[0]
 	// ipv6Layer.DstIP = ConfigVar.Clat.Dst.IP
-	ipv6Layer.DstIP = make(net.IP, net.IPv6len)
-	copy(ipv6Layer.DstIP, ConfigVar.Clat.Dst.IP)
-	dstIP := ipv4Layer.GetDst(p)
-	copy(ipv6Layer.DstIP[12:], dstIP)
+	if p.Stateful {
+		ip4t := p.GetDstTuple()
+		// log.Printf("lookup ip4t %+v", ip4t)
+		ip6t := Ctrl.GetIP(ip4t)
+		// log.Printf("return ip6t %+v", ip6t)
+		if ip6t == nil {
+			return nil, fmt.Errorf("Failed to find tuple by %s %d", ip4t.IP, ip4t.Port)
+		}
+		ipv6Layer.DstIP = make(net.IP, net.IPv6len)
+		copy(ipv6Layer.DstIP, ip6t.IP)
+		// return nil, fmt.Errorf("stateful unsupported")
+	} else {
+		ipv6Layer.DstIP = make(net.IP, net.IPv6len)
+		copy(ipv6Layer.DstIP, ConfigVar.Clat.Dst.IP)
+		dstIP := ipv4Layer.GetDst(p)
+		copy(ipv6Layer.DstIP[12:], dstIP)
+	}
+
 	// ipv6Layer.DstIP[15] = dstIP[3]
 	// ipv6Layer.DstIP[14] = dstIP[2]
 	// ipv6Layer.DstIP[13] = dstIP[1]
@@ -153,8 +175,17 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 
 	// ipLayer.SrcIP = net.ParseIP("1.1.1.1").To4()
 	// ipLayer.SrcIP = net.IP(make([]byte, 4))
-	srcIP := layer.GetSrc(p)
-	ipLayer.SrcIP = net.IPv4(srcIP[12], srcIP[13], srcIP[14], srcIP[15]).To4()
+
+	if p.Stateful {
+		ip6t := p.GetSrcTuple()
+		ip4t := Ctrl.AllocIP(ip6t)
+		ipLayer.SrcIP = net.IPv4(ip4t.IP[0], ip4t.IP[1], ip4t.IP[2], ip4t.IP[3]).To4()
+		// return nil, fmt.Errorf("stateful unsupported")
+	} else {
+		srcIP := layer.GetSrc(p)
+		ipLayer.SrcIP = net.IPv4(srcIP[12], srcIP[13], srcIP[14], srcIP[15]).To4()
+	}
+
 	// copy(ipLayer.SrcIP, srcIP[12:16])
 	// ipLayer.SrcIP[3] = srcIP[15]
 	// ipLayer.SrcIP[2] = srcIP[14]

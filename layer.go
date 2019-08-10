@@ -317,3 +317,15 @@ func (l *Layer) ToICMPLayer() *ICMPLayer {
 	icmplayer.NextLayerType = l.NextLayerType
 	return icmplayer
 }
+
+// func (l *Layer) ToTCPLayer() *TCPLayer {
+// 	if l.Type != LayerTypeTCP {
+// 		return nil
+// 	}
+// 	icmplayer := &TCPLayer{}
+// 	icmplayer.Type = l.Type
+// 	icmplayer.DataStart = l.DataStart
+// 	icmplayer.DataEnd = l.DataEnd
+// 	icmplayer.NextLayerType = l.NextLayerType
+// 	return icmplayer
+// }
