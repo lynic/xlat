@@ -16,13 +16,18 @@ type XlatConfig struct {
 	device *water.Interface
 	Spec   *XlatConfigSpec
 	Clat   *ClatConfig
+	Plat   *PlatConfig
+	IsPlat bool
 }
 
 type ClatConfig struct {
 	Src *net.IPNet
-	// SrcPos int
 	Dst *net.IPNet
-	// DstPos int
+}
+
+type PlatConfig struct {
+	Src *net.IPNet
+	Dst *net.IPNet
 }
 
 type XlatConfigSpec struct {
@@ -35,6 +40,8 @@ type XlatConfigSpec struct {
 		Dst string `json:"dst"`
 	} `json:"clat"`
 	Plat *struct {
+		Src string `json:"src"`
+		Dst string `json:"dst"`
 	} `json:"plat"`
 }
 
@@ -84,6 +91,7 @@ func (c *XlatConfig) Device() *water.Interface {
 			if err != nil {
 				log.Printf("Failed to execute '%s': %s", cmdStr, err.Error())
 			}
+			log.Printf("Executed '%s'", cmdStr)
 		}
 	}
 	return c.device
@@ -101,22 +109,42 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		log.Printf("Failed to load config: %s", err.Error())
 		return nil, err
 	}
-	clatConfig := &ClatConfig{}
-	_, clatSrcNet, err := net.ParseCIDR(configSpec.Clat.Src)
-	if err != nil {
-		log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
-		return nil, err
-	}
-	clatConfig.Src = clatSrcNet
-	_, clatDstNet, err := net.ParseCIDR(configSpec.Clat.Dst)
-	if err != nil {
-		log.Printf("Failed to parse ClatDstIP: %s", err.Error())
-		return nil, err
-	}
-	clatConfig.Dst = clatDstNet
 	ConfigVar = &XlatConfig{
-		Spec: configSpec,
-		Clat: clatConfig,
+		Spec:   configSpec,
+		IsPlat: false,
+	}
+	if configSpec.Clat != nil {
+		clatConfig := &ClatConfig{}
+		_, clatSrcNet, err := net.ParseCIDR(configSpec.Clat.Src)
+		if err != nil {
+			log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
+			return nil, err
+		}
+		clatConfig.Src = clatSrcNet
+		_, clatDstNet, err := net.ParseCIDR(configSpec.Clat.Dst)
+		if err != nil {
+			log.Printf("Failed to parse ClatDstIP: %s", err.Error())
+			return nil, err
+		}
+		clatConfig.Dst = clatDstNet
+		ConfigVar.Clat = clatConfig
+	}
+
+	if configSpec.Plat != nil {
+		platConfig := &PlatConfig{}
+		_, platSrcNet, err := net.ParseCIDR(configSpec.Plat.Src)
+		if err != nil {
+			log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
+			return nil, err
+		}
+		platConfig.Src = platSrcNet
+		_, platDstNet, err := net.ParseCIDR(configSpec.Plat.Dst)
+		if err != nil {
+			log.Printf("Failed to parse PlatDstIP: %s", err.Error())
+			return nil, err
+		}
+		platConfig.Dst = platDstNet
+		ConfigVar.Plat = platConfig
 	}
 	return ConfigVar, nil
 }

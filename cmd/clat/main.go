@@ -9,9 +9,12 @@ import (
 	_ "net/http/pprof"
 )
 
-func HandlePacket(data []byte) {
+// func HandlePacket(data []byte) {
+func HandlePacket(buffer []byte, dataStart, dataLen int) {
 	// log.Printf("new packet %+v", inpkt)
-	pkt := xlat.NewPacket(data)
+	// pkt := xlat.NewPacket(data)
+	pkt := xlat.NewPacket2(buffer, dataStart, dataLen)
+	// pkt.Print()
 	// pkt.Parse()
 	err := pkt.LazyParse()
 	if err != nil {
@@ -19,7 +22,7 @@ func HandlePacket(data []byte) {
 		return
 	}
 	if pkt.Layers[0].Type == xlat.LayerTypeIPv6 {
-		// layer := pkt.Layers[0].Parse(pkt).(*layers.IPv6)
+		// layer := pkt.Layers[0].Parse(pkt).(*ladataEndyers.IPv6)
 		// dstIP := pkt.Layers[0].GetDst(pkt)
 		if !xlat.ConfigVar.Clat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
 			return
@@ -41,7 +44,8 @@ func HandlePacket(data []byte) {
 		// 	Protocol: 0x8000,
 		// 	Packet:   npkt.Data,
 		// }
-		xlat.ConfigVar.Device().Write(npkt.Data)
+		// log.Printf("Writing %+v", npkt.Data[npkt.DataStart:npkt.DataEnd])
+		xlat.ConfigVar.Device().Write(npkt.Data[npkt.DataStart:npkt.DataEnd])
 	} else if pkt.Layers[0].Type == xlat.LayerTypeIPv4 {
 		// pkt.Print()
 		// pkt.TestICMP4Checksum()
@@ -54,6 +58,7 @@ func HandlePacket(data []byte) {
 			log.Printf("%v", err)
 			return
 		}
+		// npkt.Print()
 		// olayer := npkt.Layers[0].ParsedLayer.(*layers.IPv6)
 		// log.Printf("[out] %s -> %s %s", olayer.SrcIP.String(), olayer.DstIP.String(), olayer.NextLayerType())
 		// npkt.Parse()
@@ -62,7 +67,8 @@ func HandlePacket(data []byte) {
 		// 	Protocol: 0x86dd,
 		// 	Packet:   npkt.Data,
 		// }
-		xlat.ConfigVar.Device().Write(npkt.Data)
+		// log.Printf("Writing %+v", npkt.Data[npkt.DataStart:npkt.DataEnd])
+		xlat.ConfigVar.Device().Write(npkt.Data[npkt.DataStart:npkt.DataEnd])
 	}
 }
 
@@ -81,19 +87,21 @@ func main() {
 		log.Printf("failed to init device")
 		return
 	}
-	blockSize := xlat.ConfigVar.Spec.MTU + 20
+	reservSize := 20
+	blockSize := xlat.ConfigVar.Spec.MTU + reservSize
 	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)
 	i := 0
 	for true {
 		// packet := make([]byte, xlat.ConfigVar.Spec.MTU+100)
 		// inpkt, err := device.ReadPacket()
-		n, err := xlat.ConfigVar.Device().Read(packets[i*blockSize:])
+		n, err := xlat.ConfigVar.Device().Read(packets[i*blockSize+reservSize:])
 		// clatCtrl.Device.WritePacket()
 		if err != nil {
 			log.Printf("%s", err.Error())
 			break
 		}
-		go HandlePacket(packets[i*blockSize : i*blockSize+n])
+		// go HandlePacket(packets[i*blockSize+reservSize : i*blockSize+n+reservSize])
+		go HandlePacket(packets[i*blockSize:(i+1)*blockSize], reservSize, n)
 		i++
 		if i >= 10000 {
 			i = 0
