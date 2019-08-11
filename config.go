@@ -35,13 +35,23 @@ type XlatConfigSpec struct {
 	PostCMD    []string `json:"post_cmd"`
 	PoolSize   int      `json:"pool_size"`
 	Clat       *struct {
-		Src string `json:"src"`
-		Dst string `json:"dst"`
+		Enable bool   `json:"enable"`
+		Src    string `json:"src"`
+		Dst    string `json:"dst"`
 	} `json:"clat"`
 	Plat *struct {
-		Src string `json:"src"`
-		Dst string `json:"dst"`
+		Enable bool   `json:"enable"`
+		Src    string `json:"src"`
+		Dst    string `json:"dst"`
 	} `json:"plat"`
+	Radvd *RadvdConfig
+}
+
+type RadvdConfig struct {
+	Enable    bool     `json:"enable"`
+	Interface string   `json:"interface"`
+	Prefixes  []string `json:"prefixes"`
+	Rdnss     string   `json:"rdnss"`
 }
 
 // type ClatConfigSpec struct {
@@ -134,6 +144,7 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		log.Printf("Failed to load config: %s", err.Error())
 		return nil, err
 	}
+	log.Printf("Config Data: %+v", configSpec)
 	ConfigVar = &XlatConfig{
 		Spec: configSpec,
 	}
@@ -143,45 +154,7 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		log.Printf("Failed to load device %s: %s", ConfigVar.Spec.DeviceName, err.Error())
 		return nil, err
 	}
-	if configSpec.Clat != nil {
-		clatConfig := &ClatConfig{}
-		_, clatSrcNet, err := net.ParseCIDR(configSpec.Clat.Src)
-		if err != nil {
-			log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
-			return nil, err
-		}
-		clatConfig.Src = clatSrcNet
-		_, clatDstNet, err := net.ParseCIDR(configSpec.Clat.Dst)
-		if err != nil {
-			log.Printf("Failed to parse ClatDstIP: %s", err.Error())
-			return nil, err
-		}
-		clatConfig.Dst = clatDstNet
-		ConfigVar.Clat = clatConfig
-	}
 
-	if configSpec.Plat != nil {
-		platConfig := &PlatConfig{}
-		_, platSrcNet, err := net.ParseCIDR(configSpec.Plat.Src)
-		if err != nil {
-			log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
-			return nil, err
-		}
-		platConfig.Src = platSrcNet
-		_, platDstNet, err := net.ParseCIDR(configSpec.Plat.Dst)
-		if err != nil {
-			log.Printf("Failed to parse PlatDstIP: %s", err.Error())
-			return nil, err
-		}
-		platConfig.Dst = platDstNet
-		ConfigVar.Plat = platConfig
-		Ctrl = &Controller{}
-		err = Ctrl.Init()
-		if err != nil {
-			log.Printf("Failed to init Controller: %s", err.Error())
-			return nil, err
-		}
-	}
 	return ConfigVar, nil
 }
 

@@ -106,13 +106,11 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 
 	// ipv6Layer.SrcIP = ConfigVar.Clat.Src.IP
 	if p.Stateful {
-		ipv6Layer.SrcIP = make(net.IP, net.IPv6len)
-		copy(ipv6Layer.SrcIP, ConfigVar.Plat.Dst.IP)
+		ipv6Layer.SrcIP = CopyIP(ConfigVar.Plat.Dst.IP)
 		srcIP := ipv4Layer.GetSrc(p)
 		copy(ipv6Layer.SrcIP[12:], srcIP)
 	} else {
-		ipv6Layer.SrcIP = make(net.IP, net.IPv6len)
-		copy(ipv6Layer.SrcIP, ConfigVar.Clat.Src.IP)
+		ipv6Layer.SrcIP = CopyIP(ConfigVar.Clat.Src.IP)
 		srcIP := ipv4Layer.GetSrc(p)
 		copy(ipv6Layer.SrcIP[12:], srcIP)
 	}
@@ -129,12 +127,10 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 		if ip6t == nil {
 			return nil, fmt.Errorf("Failed to find tuple by %s %d", ip4t.IP, ip4t.Port)
 		}
-		ipv6Layer.DstIP = make(net.IP, net.IPv6len)
-		copy(ipv6Layer.DstIP, ip6t.IP)
+		ipv6Layer.DstIP = CopyIP(ip6t.IP)
 		// return nil, fmt.Errorf("stateful unsupported")
 	} else {
-		ipv6Layer.DstIP = make(net.IP, net.IPv6len)
-		copy(ipv6Layer.DstIP, ConfigVar.Clat.Dst.IP)
+		ipv6Layer.DstIP = CopyIP(ConfigVar.Clat.Dst.IP)
 		dstIP := ipv4Layer.GetDst(p)
 		copy(ipv6Layer.DstIP[12:], dstIP)
 	}

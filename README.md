@@ -5,7 +5,7 @@ Run clat
 
 ``` shell
 cd cmd/plat
-sudo env "PATH=$PATH" env "GOPATH=$GOPATH" go run main.go
+sudo env "PATH=$PATH" env "GOPATH=$GOPATH" env "XLATCONF=$(pwd)/../config.json" go run main.go
 ```
 
 Config route rules

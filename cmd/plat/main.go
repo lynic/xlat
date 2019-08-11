@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"xlat"
 
 	_ "net/http/pprof"
@@ -51,20 +52,50 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 }
 
 func main() {
-	log.Printf("lalala")
+	log.Printf("Starting xlat")
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-	_, err := xlat.LoadConfig("../config.json")
+	confPath := os.Getenv("XLATCONF")
+	if confPath == "" {
+		log.Printf("Please sepcify env XLATCONF")
+		return
+	}
+	_, err := xlat.LoadConfig(confPath)
 	if err != nil {
 		log.Printf("failed to load config: %s", err.Error())
 		return
 	}
-	device := xlat.ConfigVar.Device()
-	if device == nil {
-		log.Printf("failed to init device")
-		return
+	// device := xlat.ConfigVar.Device()
+	// if device == nil {
+	// 	log.Printf("failed to init device")
+	// 	return
+	// }
+
+	if xlat.ConfigVar.Spec.Clat != nil && xlat.ConfigVar.Spec.Clat.Enable {
+		log.Printf("Staring clat")
+		err = xlat.StartClat()
+		if err != nil {
+			log.Printf("failed to start clat: %s", err.Error())
+		}
 	}
+
+	if xlat.ConfigVar.Spec.Plat != nil && xlat.ConfigVar.Spec.Plat.Enable {
+		log.Printf("Starting plat")
+		err = xlat.StartPlat()
+		if err != nil {
+			log.Printf("failed to start clat: %s", err.Error())
+		}
+	}
+
+	if xlat.ConfigVar.Spec.Radvd != nil && xlat.ConfigVar.Spec.Radvd.Enable {
+		log.Printf("Starting radvd")
+		err = xlat.StartRadvd()
+		if err != nil {
+			log.Printf("failed to start clat: %s", err.Error())
+		}
+	}
+
 	reservSize := 20
 	blockSize := xlat.ConfigVar.Spec.MTU + reservSize
 	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)

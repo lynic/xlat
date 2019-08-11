@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"xlat/radvd"
 )
 
 // type PortType uint16
@@ -141,4 +142,82 @@ func HashIP(srcIP net.IP) net.IP {
 		ip[i] |= pool.IP[i] & (byte(0xff) << uint(8-prefix))
 	}
 	return ip
+}
+
+func StartRadvd() error {
+	if ConfigVar.Spec.Radvd != nil && ConfigVar.Spec.Radvd.Enable {
+		srv, err := radvd.NewServer()
+		if err != nil {
+			return err
+		}
+		prefixes := make([]net.IPNet, len(ConfigVar.Spec.Radvd.Prefixes))
+		for i, prefix := range ConfigVar.Spec.Radvd.Prefixes {
+			_, ipnet, err := net.ParseCIDR(prefix)
+			if err != nil {
+				return err
+			}
+			prefixes[i] = *ipnet
+		}
+		srv.SetPrefixes(prefixes)
+		conn, err := net.ListenIP("ip6:ipv6-icmp", &net.IPAddr{net.IPv6unspecified, ""})
+		if err != nil {
+			return err
+		}
+		err = srv.SetRdnss(ConfigVar.Spec.Radvd.Rdnss)
+		if err != nil {
+			return err
+		}
+		go func() {
+			if err := srv.Serve(ConfigVar.Spec.Radvd.Interface, conn); err != nil {
+				log.Printf("Failed to start radvd: %s", err)
+			}
+		}()
+	}
+	return nil
+}
+
+func StartClat() error {
+	if ConfigVar.Spec.Clat != nil && ConfigVar.Spec.Clat.Enable {
+		clatConfig := &ClatConfig{}
+		_, clatSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Src)
+		if err != nil {
+			log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
+			return err
+		}
+		clatConfig.Src = clatSrcNet
+		_, clatDstNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Dst)
+		if err != nil {
+			log.Printf("Failed to parse ClatDstIP: %s", err.Error())
+			return err
+		}
+		clatConfig.Dst = clatDstNet
+		ConfigVar.Clat = clatConfig
+	}
+	return nil
+}
+
+func StartPlat() error {
+	if ConfigVar.Spec.Plat != nil && ConfigVar.Spec.Plat.Enable {
+		platConfig := &PlatConfig{}
+		_, platSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Src)
+		if err != nil {
+			log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
+			return err
+		}
+		platConfig.Src = platSrcNet
+		_, platDstNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Dst)
+		if err != nil {
+			log.Printf("Failed to parse PlatDstIP: %s", err.Error())
+			return err
+		}
+		platConfig.Dst = platDstNet
+		ConfigVar.Plat = platConfig
+		Ctrl = &Controller{}
+		err = Ctrl.Init()
+		if err != nil {
+			log.Printf("Failed to init Controller: %s", err.Error())
+			return err
+		}
+	}
+	return nil
 }
