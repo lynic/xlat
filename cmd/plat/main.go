@@ -96,6 +96,11 @@ func main() {
 		}
 	}
 
+	if xlat.ConfigVar.Spec.DNS != nil && xlat.ConfigVar.Spec.DNS.Enable {
+		log.Printf("Starting dns")
+		go xlat.StartDNS()
+	}
+
 	reservSize := 20
 	blockSize := xlat.ConfigVar.Spec.MTU + reservSize
 	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)

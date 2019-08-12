@@ -45,6 +45,7 @@ type XlatConfigSpec struct {
 		Dst    string `json:"dst"`
 	} `json:"plat"`
 	Radvd *RadvdConfig
+	DNS   *DNSConfig
 }
 
 type RadvdConfig struct {
@@ -52,6 +53,12 @@ type RadvdConfig struct {
 	Interface string   `json:"interface"`
 	Prefixes  []string `json:"prefixes"`
 	Rdnss     string   `json:"rdnss"`
+}
+
+type DNSConfig struct {
+	Enable     bool     `json:"enable"`
+	Forwarders []string `json:"forwarders"`
+	Prefix     string   `json:"prefix"`
 }
 
 // type ClatConfigSpec struct {

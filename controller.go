@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"xlat/dns"
 	"xlat/radvd"
 )
 
@@ -216,6 +217,22 @@ func StartPlat() error {
 		err = Ctrl.Init()
 		if err != nil {
 			log.Printf("Failed to init Controller: %s", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func StartDNS() error {
+	if ConfigVar.Spec.DNS != nil && ConfigVar.Spec.DNS.Enable {
+		dserver, err := dns.NewServer(ConfigVar.Spec.DNS.Forwarders, ConfigVar.Spec.DNS.Prefix)
+		if err != nil {
+			// log.Printf(err.Error())
+			return err
+		}
+		err = dserver.ListenAndServe("[::]:53")
+		if err != nil {
+			// log.Printf(err.Error())
 			return err
 		}
 	}
