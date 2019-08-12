@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/songgao/water"
 )
 
@@ -180,7 +181,11 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		return nil, err
 	}
 	configSpec := &XlatConfigSpec{}
-	err = json.Unmarshal(data, configSpec)
+	jdata, err := yaml.YAMLToJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jdata, configSpec)
 	if err != nil {
 		log.Printf("Failed to load config: %s", err.Error())
 		return nil, err

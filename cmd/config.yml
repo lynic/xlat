@@ -1,0 +1,26 @@
+device: "tun0"
+mtu: 1500
+buffer_size: 10000,
+post_cmd:
+  - "ifconfig tun0 192.168.8.1/24 up"
+  - "ip route add 9.9.9.9/32 via 192.168.8.1"
+  - "ip -6 route add 2018::/96 dev tun0"
+  - "ip -6 route add 2017::/96 dev tun0"
+  - "ip route add 10.0.0.0/24 via 192.168.8.1"
+clat:
+  enable: true
+  src: "2018::/96"
+  dst: "2019::/96"
+plat:
+  enable: true
+  src: "10.0.0.0/24"
+  dst: "2017::/96"
+radvd:
+  enable: false
+  interface: "ens33"
+  prefixes": ["2019::/64"]
+  rdnss: "2019::1"
+dns:
+  enable: false
+  forwarders: ["8.8.8.8:53"]
+  prefix: "2017::/96"
