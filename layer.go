@@ -2,6 +2,7 @@ package xlat
 
 import (
 	"encoding/binary"
+	"net"
 	"reflect"
 
 	"github.com/google/gopacket"
@@ -198,23 +199,23 @@ func (l *Layer) Parse(p *Packet) gopacket.Layer {
 }
 
 // Don't modify it
-func (l *Layer) GetSrc(p *Packet) []byte {
+func (l *Layer) GetSrc(p *Packet) net.IP {
 	if l.Type == LayerTypeIPv4 {
-		return p.Data[l.DataStart+12 : l.DataStart+16]
+		return net.IP(p.Data[l.DataStart+12 : l.DataStart+16])
 	}
 	if l.Type == LayerTypeIPv6 {
-		return p.Data[l.DataStart+8 : l.DataStart+24]
+		return net.IP(p.Data[l.DataStart+8 : l.DataStart+24])
 	}
 	return nil
 }
 
 // don't modify it
-func (l *Layer) GetDst(p *Packet) []byte {
+func (l *Layer) GetDst(p *Packet) net.IP {
 	if l.Type == LayerTypeIPv4 {
-		return p.Data[l.DataStart+16 : l.DataStart+20]
+		return net.IP(p.Data[l.DataStart+16 : l.DataStart+20])
 	}
 	if l.Type == LayerTypeIPv6 {
-		return p.Data[l.DataStart+24 : l.DataStart+40]
+		return net.IP(p.Data[l.DataStart+24 : l.DataStart+40])
 	}
 	return nil
 }

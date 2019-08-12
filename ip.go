@@ -125,6 +125,7 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 		ip6t := Ctrl.GetIP(ip4t)
 		// log.Printf("return ip6t %+v", ip6t)
 		if ip6t == nil {
+			p.Print()
 			return nil, fmt.Errorf("Failed to find tuple by %s %d", ip4t.IP, ip4t.Port)
 		}
 		ipv6Layer.DstIP = CopyIP(ip6t.IP)

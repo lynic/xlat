@@ -2,6 +2,7 @@ package xlat
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -33,7 +34,7 @@ type XlatConfigSpec struct {
 	DeviceName string   `json:"device"`
 	MTU        int      `json:"mtu"`
 	PostCMD    []string `json:"post_cmd"`
-	PoolSize   int      `json:"pool_size"`
+	BufferSize int      `json:"buffer_size"`
 	Clat       *struct {
 		Enable bool   `json:"enable"`
 		Src    string `json:"src"`
@@ -60,6 +61,13 @@ type DNSConfig struct {
 	Forwarders []string `json:"forwarders"`
 	Prefix     string   `json:"prefix"`
 }
+
+const (
+	ServiceClat  = "clat"
+	ServicePlat  = "plat"
+	ServiceRadvd = "radvd"
+	ServiceDns   = "dns"
+)
 
 // type ClatConfigSpec struct {
 // 	Src string `json:"src"`
@@ -113,6 +121,32 @@ func (c *XlatConfig) Device() *water.Interface {
 	return c.device
 }
 
+func (c *XlatConfig) Enabled(service string) bool {
+	switch service {
+	case ServiceClat:
+		if c.Spec.Clat != nil && c.Spec.Clat.Enable == true {
+			return true
+		}
+		return false
+	case ServicePlat:
+		if c.Spec.Plat != nil && c.Spec.Plat.Enable == true {
+			return true
+		}
+		return false
+	case ServiceRadvd:
+		if c.Spec.Radvd != nil && c.Spec.Radvd.Enable == true {
+			return true
+		}
+		return false
+	case ServiceDns:
+		if c.Spec.DNS != nil && c.Spec.DNS.Enable == true {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 func (c *XlatConfig) InitDevice() error {
 	deviceConfig := water.Config{
 		DeviceType: water.TUN,
@@ -151,7 +185,16 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 		log.Printf("Failed to load config: %s", err.Error())
 		return nil, err
 	}
-	log.Printf("Config Data: %+v", configSpec)
+	// log.Printf("Config Data: %+v", configSpec)
+	if configSpec.DeviceName == "" {
+		return nil, fmt.Errorf("no devicename found")
+	}
+	if configSpec.MTU == 0 {
+		configSpec.MTU = 1500
+	}
+	if configSpec.BufferSize == 0 {
+		configSpec.BufferSize = 1000
+	}
 	ConfigVar = &XlatConfig{
 		Spec: configSpec,
 	}

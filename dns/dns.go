@@ -70,13 +70,21 @@ func NewServer(forwarders []string, prefix string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	upstream := make([]string, len(forwarders))
+	for i, forwarder := range forwarders {
+		if !strings.HasSuffix(forwarder, ":53") {
+			upstream[i] = forwarder + ":53"
+		} else {
+			upstream[i] = forwarder
+		}
+	}
 	server := &Server{
 		Mux:    dns.NewServeMux(),
 		Prefix: ipnet,
 		// DnsServer: *dns.Server,
 		client: &dns.Client{},
 		// domain: domain,
-		upstream: forwarders,
+		upstream: upstream,
 		// upstream: []string{
 		// 	// https://developers.google.com/speed/public-dns/docs/using#google_public_dns_ip_addresses
 		// 	"8.8.8.8:53",

@@ -118,6 +118,10 @@ func (c *Controller) AllocIP(ip6t *NATuple) *NATuple {
 func (c *Controller) GetIP(ip4t *NATuple) *NATuple {
 	// return c.Table46[binary.BigEndian.Uint32(ip4t.IP)].Get(ip4t.Port)
 	v, _ := c.Table46.Load(binary.BigEndian.Uint32(ip4t.IP))
+	// log.Printf("ip4t.IP == %s", ip4t.IP)
+	// if ok == false {
+	// 	return nil
+	// }
 	pp := v.(*PortPool)
 	return pp.Get(ip4t.Port)
 }

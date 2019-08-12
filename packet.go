@@ -3,7 +3,6 @@ package xlat
 import (
 	"fmt"
 	"log"
-	"net"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -182,7 +181,7 @@ func (p *Packet) GetSrcTuple() *NATuple {
 	ipt := &NATuple{}
 	for i := 0; i < len(p.Layers); i++ {
 		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
-			ipt.IP = net.IP(p.Layers[i].GetSrc(p))
+			ipt.IP = CopyIP(p.Layers[i].GetSrc(p))
 		}
 		if p.Layers[i].Type == LayerTypeICMPv4 ||
 			p.Layers[i].Type == LayerTypeICMPv6 ||
@@ -198,7 +197,7 @@ func (p *Packet) GetDstTuple() *NATuple {
 	ipt := &NATuple{}
 	for i := 0; i < len(p.Layers); i++ {
 		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
-			ipt.IP = net.IP(p.Layers[i].GetDst(p))
+			ipt.IP = CopyIP(p.Layers[i].GetDst(p))
 		}
 		if p.Layers[i].Type == LayerTypeICMPv4 ||
 			p.Layers[i].Type == LayerTypeICMPv6 ||

@@ -18,10 +18,18 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 		return
 	}
 	if pkt.Layers[0].Type == xlat.LayerTypeIPv6 {
-		if !xlat.ConfigVar.Clat.Src.Contains(pkt.Layers[0].GetDst(pkt)) && xlat.Ctrl != nil {
+		if xlat.ConfigVar.Enabled(xlat.ServiceClat) == false &&
+			xlat.ConfigVar.Enabled(xlat.ServicePlat) == false {
+			return
+		}
+		if xlat.ConfigVar.Enabled(xlat.ServiceClat) &&
+			xlat.ConfigVar.Clat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
+			pkt.Stateful = false
+		} else if xlat.ConfigVar.Enabled(xlat.ServicePlat) {
 			// Use Plat ?
 			pkt.Stateful = true
 		}
+		// if xlat.ConfigVar.Clat == nil
 		// pkt.Print()
 		// log.Printf("Converting packet")
 		npkt, err := xlat.ConvertPacket(pkt)
@@ -32,11 +40,16 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 		// log.Printf("Converted packet")
 		// pkt.Print()
 		xlat.ConfigVar.Device().Write(npkt.Data[npkt.DataStart:npkt.DataEnd])
-	} else if pkt.Layers[0].Type == xlat.LayerTypeIPv4 && xlat.Ctrl != nil {
-		if xlat.ConfigVar.Plat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
+		return
+	}
+	if pkt.Layers[0].Type == xlat.LayerTypeIPv4 {
+		if xlat.ConfigVar.Enabled(xlat.ServicePlat) &&
+			xlat.ConfigVar.Plat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
 			// Use Plat ?
 			pkt.Stateful = true
 			// return
+		} else if xlat.ConfigVar.Enabled(xlat.ServiceClat) == false {
+			return
 		}
 		// pkt.Print()
 		// log.Printf("Converting packet")
@@ -48,6 +61,7 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 		// log.Printf("Converted packet")
 		// pkt.Print()
 		xlat.ConfigVar.Device().Write(npkt.Data[npkt.DataStart:npkt.DataEnd])
+		return
 	}
 }
 
@@ -72,15 +86,15 @@ func main() {
 	// 	return
 	// }
 
-	if xlat.ConfigVar.Spec.Clat != nil && xlat.ConfigVar.Spec.Clat.Enable {
-		log.Printf("Staring clat")
+	if xlat.ConfigVar.Enabled(xlat.ServiceClat) {
+		log.Printf("Starting clat")
 		err = xlat.StartClat()
 		if err != nil {
 			log.Printf("failed to start clat: %s", err.Error())
 		}
 	}
 
-	if xlat.ConfigVar.Spec.Plat != nil && xlat.ConfigVar.Spec.Plat.Enable {
+	if xlat.ConfigVar.Enabled(xlat.ServicePlat) {
 		log.Printf("Starting plat")
 		err = xlat.StartPlat()
 		if err != nil {
@@ -88,7 +102,7 @@ func main() {
 		}
 	}
 
-	if xlat.ConfigVar.Spec.Radvd != nil && xlat.ConfigVar.Spec.Radvd.Enable {
+	if xlat.ConfigVar.Enabled(xlat.ServiceRadvd) {
 		log.Printf("Starting radvd")
 		err = xlat.StartRadvd()
 		if err != nil {
@@ -96,14 +110,14 @@ func main() {
 		}
 	}
 
-	if xlat.ConfigVar.Spec.DNS != nil && xlat.ConfigVar.Spec.DNS.Enable {
+	if xlat.ConfigVar.Enabled(xlat.ServiceDns) {
 		log.Printf("Starting dns")
 		go xlat.StartDNS()
 	}
 
 	reservSize := 20
 	blockSize := xlat.ConfigVar.Spec.MTU + reservSize
-	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.PoolSize)
+	packets := make([]byte, blockSize*xlat.ConfigVar.Spec.BufferSize)
 	i := 0
 	for true {
 		// packet := make([]byte, xlat.ConfigVar.Spec.MTU+100)

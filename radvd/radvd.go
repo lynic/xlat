@@ -283,7 +283,7 @@ func (s *Server) sendAdvertisement(addr net.Addr) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("sending to %s", addr)
+	// log.Printf("sending to %s", addr)
 	if _, err := s.pc.WriteTo(mb, nil, addr); err != nil {
 		return err
 	}
