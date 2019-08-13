@@ -3,11 +3,11 @@ package xlat
 import (
 	"encoding/binary"
 	"fmt"
-	"hash"
 	"log"
 	"net"
 	"strings"
 	"sync"
+	"time"
 	"xlat/dns"
 	"xlat/radvd"
 
@@ -20,8 +20,13 @@ import (
 var Ctrl *Controller
 
 type NATuple struct {
-	IP   net.IP
-	Port uint16
+	IP       net.IP
+	Port     uint16
+	SrcIP    net.IP
+	SrcPort  uint16
+	DstIP    net.IP
+	DstPort  uint16
+	LastUsed time.Time
 }
 
 func (t *NATuple) Copy() *NATuple {
@@ -44,9 +49,7 @@ type PortPool struct {
 // }
 
 type Controller struct {
-	IdxIP   []net.IP
 	Table64 map[string]net.IP
-	hasher  hash.Hash32
 	// Table46 map[uint32]*PortPool
 	Table46 sync.Map
 }
@@ -79,7 +82,6 @@ func (pp *PortPool) Set(port uint16, ip6t *NATuple) error {
 }
 
 func (c *Controller) Init() error {
-	c.hasher = murmur3.New32()
 	c.InitTable()
 	return nil
 }
@@ -124,7 +126,8 @@ func (c *Controller) SetTable(ip4t *NATuple, ip6t *NATuple) error {
 }
 
 func (c *Controller) AllocIP(ip6t *NATuple) *NATuple {
-	idx := int(c.hasher.Sum32()) % len(ConfigVar.Plat.Src)
+	// idx := int(c.hasher.Sum32()) % len(ConfigVar.Plat.Src)
+	idx := int(murmur3.Sum32(ip6t.IP)) % len(ConfigVar.Plat.Src)
 	ip4 := CopyIP(ConfigVar.Plat.Src[idx])
 	// ip4 := HashIP(ip6t.IP)
 	ip4t := &NATuple{
