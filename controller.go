@@ -2,11 +2,16 @@ package xlat
 
 import (
 	"encoding/binary"
+	"fmt"
+	"hash"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"xlat/dns"
 	"xlat/radvd"
+
+	"github.com/spaolacci/murmur3"
 )
 
 // type PortType uint16
@@ -39,7 +44,9 @@ type PortPool struct {
 // }
 
 type Controller struct {
+	IdxIP   []net.IP
 	Table64 map[string]net.IP
+	hasher  hash.Hash32
 	// Table46 map[uint32]*PortPool
 	Table46 sync.Map
 }
@@ -72,25 +79,38 @@ func (pp *PortPool) Set(port uint16, ip6t *NATuple) error {
 }
 
 func (c *Controller) Init() error {
+	c.hasher = murmur3.New32()
 	c.InitTable()
 	return nil
 }
 
+// func (c *Controller) InitTable() {
+// 	// for i, poolStr := range ConfigVar.Spec.Plat
+// 	poolStart := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
+// 	poolEnd := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
+// 	prefix, _ := ConfigVar.Plat.Src.Mask.Size()
+// 	poolEnd |= uint32(0xffffffff) >> uint(prefix)
+// 	// poolSize := int(poolEnd-poolStart) + 1
+// 	// c.Table46 = make(map[uint32]*PortPool, poolSize)
+// 	for i := poolStart; i <= poolEnd; i++ {
+// 		pp := &PortPool{}
+// 		err := pp.Init()
+// 		if err != nil {
+// 			log.Printf("failed to init %d pool: %s", i, err.Error())
+// 		}
+// 		// c.Table46[i] = pp
+// 		c.Table46.Store(i, pp)
+// 	}
+// }
+
 func (c *Controller) InitTable() {
-	poolStart := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
-	poolEnd := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
-	prefix, _ := ConfigVar.Plat.Src.Mask.Size()
-	poolEnd |= uint32(0xffffffff) >> uint(prefix)
-	// poolSize := int(poolEnd-poolStart) + 1
-	// c.Table46 = make(map[uint32]*PortPool, poolSize)
-	for i := poolStart; i <= poolEnd; i++ {
+	for _, ip := range ConfigVar.Plat.Src {
 		pp := &PortPool{}
 		err := pp.Init()
 		if err != nil {
-			log.Printf("failed to init %d pool: %s", i, err.Error())
+			log.Printf("failed to init table %s: %s", ip.String(), err.Error())
 		}
-		// c.Table46[i] = pp
-		c.Table46.Store(i, pp)
+		c.Table46.Store(binary.BigEndian.Uint32(ip), pp)
 	}
 }
 
@@ -104,7 +124,9 @@ func (c *Controller) SetTable(ip4t *NATuple, ip6t *NATuple) error {
 }
 
 func (c *Controller) AllocIP(ip6t *NATuple) *NATuple {
-	ip4 := HashIP(ip6t.IP)
+	idx := int(c.hasher.Sum32()) % len(ConfigVar.Plat.Src)
+	ip4 := CopyIP(ConfigVar.Plat.Src[idx])
+	// ip4 := HashIP(ip6t.IP)
 	ip4t := &NATuple{
 		IP:   ip4,
 		Port: ip6t.Port,
@@ -126,28 +148,28 @@ func (c *Controller) GetIP(ip4t *NATuple) *NATuple {
 	return pp.Get(ip4t.Port)
 }
 
-func HashIP(srcIP net.IP) net.IP {
-	pool := ConfigVar.Plat.Src
-	ip := net.IPv4(0, 0, 0, 0).To4()
-	for i := 0; i < len(srcIP); i += 4 {
-		ip[0] ^= srcIP[i+0]
-		ip[1] ^= srcIP[i+1]
-		ip[2] ^= srcIP[i+2]
-		ip[3] ^= srcIP[i+3]
-	}
-	prefix, _ := pool.Mask.Size()
-	i := 0
-	for prefix > 8 {
-		ip[i] = pool.IP[i]
-		i++
-		prefix -= 8
-	}
-	if prefix > 0 {
-		ip[i] &= byte(0xff) >> uint(prefix)
-		ip[i] |= pool.IP[i] & (byte(0xff) << uint(8-prefix))
-	}
-	return ip
-}
+// func HashIP(srcIP net.IP) net.IP {
+// 	pool := ConfigVar.Plat.Src
+// 	ip := net.IPv4(0, 0, 0, 0).To4()
+// 	for i := 0; i < len(srcIP); i += 4 {
+// 		ip[0] ^= srcIP[i+0]
+// 		ip[1] ^= srcIP[i+1]
+// 		ip[2] ^= srcIP[i+2]
+// 		ip[3] ^= srcIP[i+3]
+// 	}
+// 	prefix, _ := pool.Mask.Size()
+// 	i := 0
+// 	for prefix > 8 {
+// 		ip[i] = pool.IP[i]
+// 		i++
+// 		prefix -= 8
+// 	}
+// 	if prefix > 0 {
+// 		ip[i] &= byte(0xff) >> uint(prefix)
+// 		ip[i] |= pool.IP[i] & (byte(0xff) << uint(8-prefix))
+// 	}
+// 	return ip
+// }
 
 func StartRadvd() error {
 	if ConfigVar.Spec.Radvd != nil && ConfigVar.Spec.Radvd.Enable {
@@ -204,12 +226,30 @@ func StartClat() error {
 func StartPlat() error {
 	if ConfigVar.Spec.Plat != nil && ConfigVar.Spec.Plat.Enable {
 		platConfig := &PlatConfig{}
-		_, platSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Src)
-		if err != nil {
-			log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
-			return err
+		platConfig.Src = make([]net.IP, 0)
+		platConfig.SrcIdx = make(map[uint32]int)
+		for _, poolStr := range ConfigVar.Spec.Plat.Src {
+			sp := strings.Split(poolStr, "-")
+			if len(sp) == 2 {
+				startIP := binary.BigEndian.Uint32(net.ParseIP(sp[0]).To4())
+				endIP := binary.BigEndian.Uint32(net.ParseIP(sp[1]).To4())
+				for j := startIP; j <= endIP; j++ {
+					ip := make([]byte, 4)
+					binary.BigEndian.PutUint32(ip, j)
+					platConfig.Src = append(platConfig.Src, net.IP(ip))
+					platConfig.SrcIdx[j] = len(platConfig.Src) - 1
+				}
+			} else {
+				//TODO
+				return fmt.Errorf("failed to parse plat src %s", poolStr)
+			}
 		}
-		platConfig.Src = platSrcNet
+		// _, platSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Src)
+		// if err != nil {
+		// 	log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
+		// 	return err
+		// }
+		// platConfig.Src = platSrcNet
 		_, platDstNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Dst)
 		if err != nil {
 			log.Printf("Failed to parse PlatDstIP: %s", err.Error())

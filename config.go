@@ -1,6 +1,7 @@
 package xlat
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,8 +28,10 @@ type ClatConfig struct {
 }
 
 type PlatConfig struct {
-	Src *net.IPNet
-	Dst *net.IPNet
+	// SrcPool *net.IPNet
+	SrcIdx map[uint32]int
+	Src    []net.IP
+	Dst    *net.IPNet
 }
 
 type XlatConfigSpec struct {
@@ -42,9 +45,9 @@ type XlatConfigSpec struct {
 		Dst    string `json:"dst"`
 	} `json:"clat"`
 	Plat *struct {
-		Enable bool   `json:"enable"`
-		Src    string `json:"src"`
-		Dst    string `json:"dst"`
+		Enable bool     `json:"enable"`
+		Src    []string `json:"src"`
+		Dst    string   `json:"dst"`
 	} `json:"plat"`
 	Radvd *RadvdConfig
 	DNS   *DNSConfig
@@ -93,32 +96,15 @@ var ConfigVar *XlatConfig
 // 	return c.device
 // }
 
+func (p *PlatConfig) SrcContains(ip net.IP) bool {
+	key := binary.BigEndian.Uint32(ip)
+	if _, ok := p.SrcIdx[key]; ok {
+		return true
+	}
+	return false
+}
+
 func (c *XlatConfig) Device() *water.Interface {
-	// if c.device != nil {
-	// 	return c.device
-	// }
-	// deviceConfig := water.Config{
-	// 	DeviceType: water.TUN,
-	// }
-	// deviceConfig.Name = c.Spec.DeviceName
-	// deviceConfig.MultiQueue = true
-	// dev, err := water.New(deviceConfig)
-	// if err != nil {
-	// 	log.Printf("Failed to load device %s: %s", c.Spec.DeviceName, err.Error())
-	// 	return nil
-	// }
-	// c.device = dev
-	// if c.Spec.PostCMD != nil {
-	// 	for _, cmdStr := range c.Spec.PostCMD {
-	// 		scmd := strings.Split(cmdStr, " ")
-	// 		cmd := exec.Command(scmd[0], scmd[1:]...)
-	// 		err := cmd.Run()
-	// 		if err != nil {
-	// 			log.Printf("Failed to execute '%s': %s", cmdStr, err.Error())
-	// 		}
-	// 		log.Printf("Executed '%s'", cmdStr)
-	// 	}
-	// }
 	return c.device
 }
 

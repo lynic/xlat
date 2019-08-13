@@ -44,7 +44,7 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 	}
 	if pkt.Layers[0].Type == xlat.LayerTypeIPv4 {
 		if xlat.ConfigVar.Enabled(xlat.ServicePlat) &&
-			xlat.ConfigVar.Plat.Src.Contains(pkt.Layers[0].GetDst(pkt)) {
+			xlat.ConfigVar.Plat.SrcContains(pkt.Layers[0].GetDst(pkt)) {
 			// Use Plat ?
 			pkt.Stateful = true
 			// return

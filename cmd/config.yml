@@ -1,6 +1,6 @@
 device: "tun0"
 mtu: 1500
-buffer_size: 10000,
+buffer_size: 10000
 post_cmd:
   - "ifconfig tun0 192.168.8.1/24 up"
   - "ip route add 9.9.9.9/32 via 192.168.8.1"
@@ -13,7 +13,8 @@ clat:
   dst: "2019::/96"
 plat:
   enable: true
-  src: "10.0.0.0/24"
+  src:
+    - "10.0.0.5-10.0.0.250"
   dst: "2017::/96"
 radvd:
   enable: false
