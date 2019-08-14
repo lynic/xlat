@@ -16,12 +16,12 @@ plat:
   src:
     - "10.0.0.5-10.0.0.250"
   dst: "2017::/96"
-radvd:
+ra:
   enable: false
   interface: "ens33"
   prefixes": ["2019::/64"]
   rdnss: "2019::1"
-dns:
+dns64:
   enable: false
   forwarders: ["8.8.8.8:53"]
   prefix: "2017::/96"

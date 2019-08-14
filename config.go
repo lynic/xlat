@@ -49,8 +49,8 @@ type XlatConfigSpec struct {
 		Src    []string `json:"src"`
 		Dst    string   `json:"dst"`
 	} `json:"plat"`
-	Radvd *RadvdConfig
-	DNS   *DNSConfig
+	Radvd *RadvdConfig `json:"ra"`
+	DNS   *DNSConfig   `json:"dns64"`
 }
 
 type RadvdConfig struct {
