@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -177,10 +179,13 @@ func (pp *PortPool) GetAndSet(ipt *NATuple) {
 			// lock.Unlock()
 			t.Mux.Unlock()
 		} else {
-			log.Printf("ipt conflict %+v", t)
+			log.Printf("ipt conflict t=%+v, ipt=%+v", t, ipt)
 			// lock.Unlock()
 			t.Mux.Unlock()
 			ipt.Port4++
+			if ipt.Port4 >= 60000 {
+				ipt.Port4 = 10000
+			}
 			pp.GetAndSet(ipt)
 		}
 	} else {
@@ -379,5 +384,23 @@ func StartDNS() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func StartAPI() error {
+	server := &WebInfo{}
+	err := server.Init()
+	if err != nil {
+		return err
+	}
+	portStr := os.Getenv("APIPORT")
+	if portStr == "" {
+		portStr = "9090"
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse APIPORT %s: %s", portStr, err.Error())
+	}
+	go server.Serve("0.0.0.0", port)
 	return nil
 }

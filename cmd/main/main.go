@@ -70,12 +70,16 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+	err := xlat.StartAPI()
+	if err != nil {
+		log.Printf("Failed to start API: %s", err.Error())
+	}
 	confPath := os.Getenv("XLATCONF")
 	if confPath == "" {
 		log.Printf("Please sepcify env XLATCONF")
 		return
 	}
-	_, err := xlat.LoadConfig(confPath)
+	_, err = xlat.LoadConfig(confPath)
 	if err != nil {
 		log.Printf("failed to load config: %s", err.Error())
 		return
