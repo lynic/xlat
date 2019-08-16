@@ -26,3 +26,5 @@ dns64:
   enable: false
   forwarders: ["8.8.8.8:53"]
   prefix: "2017::/96"
+api:
+ enable: true

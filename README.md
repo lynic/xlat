@@ -4,8 +4,8 @@
 Run xlat from code
 
 ``` shell
-cd cmd/plat
-sudo env "PATH=$PATH" env "GOPATH=$GOPATH" env "XLATCONF=$(pwd)/../config.json" go run main.go
+cd cmd/main
+sudo env "PATH=$PATH" env "GOPATH=$GOPATH" env "XLATCONF=$(pwd)/../config.yml" go run main.go
 ```
 
 Run xlat through docker

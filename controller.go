@@ -136,6 +136,20 @@ func (pp *PortPool) Get(ipt *NATuple) *NATuple {
 	return ipt
 }
 
+func (pp *PortPool) Get2(port uint16) *NATuple {
+	// if _, exist := pp.PortMap[port]; exist == false {
+	// 	return nil
+	// }
+	// return pp.PortMap[port]
+	v, ok := pp.PortMap.Load(port)
+	if ok == false {
+		return nil
+	}
+	out := v.(*NATuple)
+	out.LastUsed = time.Now()
+	return out.Copy()
+}
+
 func (pp *PortPool) Set(ipt *NATuple) error {
 	// pp.PortMap[port] = ip6t
 	e := pp.Get(ipt)
@@ -238,6 +252,11 @@ func (c *Controller) AllocIP(ipt *NATuple) *NATuple {
 	pp := c.Table46[binary.BigEndian.Uint32(ipt.IP4)]
 	pp.GetAndSet(ipt)
 	return ipt
+}
+
+func (c *Controller) GetIP2(ip net.IP, port uint16) *NATuple {
+	pp := c.Table46[binary.BigEndian.Uint32(ip)]
+	return pp.Get2(port)
 }
 
 func (c *Controller) GetIP(ipt *NATuple) *NATuple {

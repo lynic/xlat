@@ -2,11 +2,8 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"xlat"
-
-	_ "net/http/pprof"
 )
 
 // func HandlePacket(data []byte) {
@@ -67,9 +64,6 @@ func HandlePacket(buffer []byte, dataStart, dataLen int) {
 
 func main() {
 	log.Printf("Starting xlat")
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 	confPath := os.Getenv("XLATCONF")
 	if confPath == "" {
 		log.Printf("Please sepcify env XLATCONF")

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"net"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -222,6 +223,31 @@ func (p *Packet) GetDstTuple() *NATuple {
 		}
 	}
 	return ipt
+}
+
+func (p *Packet) GetDstTuple2() (net.IP, uint16) {
+	// ipt := &NATuple{}
+	var ip net.IP
+	var port uint16
+	for i := 0; i < len(p.Layers); i++ {
+		if p.Layers[i].Type == LayerTypeIPv4 {
+			ip = p.Layers[i].GetDst(p)
+		}
+		if p.Layers[i].Type == LayerTypeIPv6 {
+			ip = p.Layers[i].GetDst(p)
+		}
+		if p.Layers[i].Type == LayerTypeTCP ||
+			p.Layers[i].Type == LayerTypeICMPv4 ||
+			p.Layers[i].Type == LayerTypeICMPv6 ||
+			p.Layers[i].Type == LayerTypeUDP {
+			if len(ip) == 4 {
+				port = p.Layers[i].GetDstPort(p)
+			} else {
+				port = p.Layers[i].GetDstPort(p)
+			}
+		}
+	}
+	return ip, port
 }
 
 func (p *Packet) SetSrcPort(port uint16) error {

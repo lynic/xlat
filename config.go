@@ -40,10 +40,7 @@ type XlatConfigSpec struct {
 	PostCMD    []string `json:"post_cmd"`
 	BufferSize int      `json:"buffer_size"`
 	NATTimeout float64  `json:"nat_timeout"`
-	API        *struct {
-		Enable bool `json:"enable"`
-	} `json:"api"`
-	Clat *struct {
+	Clat       *struct {
 		Enable bool   `json:"enable"`
 		Src    string `json:"src"`
 		Dst    string `json:"dst"`
@@ -55,6 +52,9 @@ type XlatConfigSpec struct {
 	} `json:"plat"`
 	Radvd *RadvdConfig `json:"ra"`
 	DNS   *DNSConfig   `json:"dns64"`
+	API   *struct {
+		Enable bool `json:"enable"`
+	} `json:"api"`
 }
 
 type RadvdConfig struct {
