@@ -17,30 +17,73 @@ import (
 // type PortType uint16
 // type IP4Key uint32
 
+const (
+	NATDirection46 = "46"
+	NATDirection64 = "64"
+)
+
 var Ctrl *Controller
 
 type NATuple struct {
-	IP       net.IP
-	Port     uint16
-	SrcIP    net.IP
-	SrcPort  uint16
-	DstIP    net.IP
-	DstPort  uint16
-	LastUsed time.Time
+	// IP       net.IP
+	// Port     uint16
+	IP4       net.IP
+	Port4     uint16
+	IP6       net.IP
+	Port6     uint16
+	LastUsed  time.Time
+	Direction string
+	Mux       *sync.Mutex
+}
+
+func (t *NATuple) Init() error {
+	t.Mux = &sync.Mutex{}
+	return nil
 }
 
 func (t *NATuple) Copy() *NATuple {
 	newt := &NATuple{
-		IP:   make([]byte, len(t.IP)),
-		Port: t.Port,
+		Port4:     t.Port4,
+		Port6:     t.Port6,
+		LastUsed:  t.LastUsed,
+		Direction: t.Direction,
+		Mux:       t.Mux,
 	}
-	copy(newt.IP, t.IP)
+	if t.IP4 != nil {
+		newt.IP4 = make([]byte, len(t.IP4))
+		copy(newt.IP4, t.IP4)
+	}
+	if t.IP6 != nil {
+		newt.IP6 = make([]byte, len(t.IP6))
+		copy(newt.IP6, t.IP6)
+	}
 	return newt
 }
 
-type PortPool struct {
-	// PortMap map[uint16]*NATuple
-	PortMap sync.Map
+func (t *NATuple) CopyTo(ipt *NATuple) *NATuple {
+	// newt := &NATuple{
+	// 	Port4:     t.Port4,
+	// 	Port6:     t.Port6,
+	// 	LastUsed:  t.LastUsed,
+	// 	Direction: t.Direction,
+	// 	Mux:       t.Mux,
+	// }
+	ipt.Port4 = t.Port4
+	ipt.Port6 = t.Port6
+	ipt.LastUsed = t.LastUsed
+	ipt.Direction = t.Direction
+	if ipt.Mux == nil {
+		ipt.Mux = t.Mux
+	}
+	if t.IP4 != nil && ipt.IP4 == nil {
+		ipt.IP4 = make([]byte, len(t.IP4))
+		copy(ipt.IP4, t.IP4)
+	}
+	if t.IP6 != nil && ipt.IP6 == nil {
+		ipt.IP6 = make([]byte, len(t.IP6))
+		copy(ipt.IP6, t.IP6)
+	}
+	return ipt
 }
 
 // type SessionPool struct {
@@ -51,34 +94,107 @@ type PortPool struct {
 type Controller struct {
 	Table64 map[string]net.IP
 	// Table46 map[uint32]*PortPool
-	Table46 sync.Map
+	// Table46 sync.Map
+	Table46 map[uint32]*PortPool
+	Mux46   map[uint32]*sync.Mutex
+}
+
+type PortPool struct {
+	// PortMap map[uint16]*NATuple
+	PortMap sync.Map
+	// Mux     map[uint16]*sync.Mutex
+	Mux sync.Map
 }
 
 func (pp *PortPool) Init() error {
 	// pp.PortMap = make(map[uint16]*NATuple)
+	// pp.Mux = make(map[uint16]*sync.Mutex)
 	return nil
 }
 
-func (pp *PortPool) Get(port uint16) *NATuple {
+func (pp *PortPool) Get(ipt *NATuple) *NATuple {
 	// if _, exist := pp.PortMap[port]; exist == false {
 	// 	return nil
 	// }
 	// return pp.PortMap[port]
-	v, ok := pp.PortMap.Load(port)
+	v, ok := pp.PortMap.Load(ipt.Port4)
 	if ok == false {
 		return nil
 	}
-	return v.(*NATuple).Copy()
+	out := v.(*NATuple)
+	out.LastUsed = time.Now()
+	if !out.IP4.Equal(ipt.IP4) {
+		log.Printf("Not Match! in.IP4 = %s, out.IP4 = %s", ipt.IP4, out.IP4)
+	}
+	if out.Port4 != ipt.Port4 {
+		log.Printf("Not Match! in.Port4 = %d, out.Port4 = %d", ipt.Port4, out.Port4)
+	}
+	ipt.IP6 = CopyIP(out.IP6)
+	ipt.Port6 = out.Port6
+	return ipt
 }
 
-func (pp *PortPool) Set(port uint16, ip6t *NATuple) error {
+func (pp *PortPool) Set(ipt *NATuple) error {
 	// pp.PortMap[port] = ip6t
-	e := pp.Get(port)
-	if e != nil && e.IP.Equal(ip6t.IP) && e.Port == ip6t.Port {
+	e := pp.Get(ipt)
+	if e != nil && e.IP6.Equal(ipt.IP6) && e.Port6 == ipt.Port6 {
 		return nil
 	}
-	pp.PortMap.Store(port, ip6t)
+	pp.PortMap.Store(ipt.Port4, ipt)
 	return nil
+}
+
+func (pp *PortPool) GetAndSet(ipt *NATuple) {
+	// first time, port4 == port6
+	// other time, port4++
+	// v, ok := pp.Mux.LoadOrStore(ipt.Port4, &sync.Mutex{})
+	// lock := v.(*sync.Mutex)
+	nipt := &NATuple{}
+	// nipt.Init()
+	v, ok := pp.PortMap.LoadOrStore(ipt.Port4, nipt)
+	if ok {
+		// replace record
+		// lock.Lock()
+		t := v.(*NATuple)
+		if t.Mux == nil {
+			log.Printf("Race condition waiting for mutex: %+v", ipt)
+			for t.Mux == nil {
+			}
+			pp.GetAndSet(ipt)
+			return
+		}
+		t.Mux.Lock()
+		// v, _ := pp.PortMap.Load(ipt.Port4)
+		// t := v.(*NATuple)
+		if t.IP6.Equal(ipt.IP6) {
+			t.LastUsed = time.Now()
+			// lock.Unlock()
+			t.Mux.Unlock()
+		} else if time.Since(t.LastUsed).Minutes() > ConfigVar.Spec.NATTimeout {
+			log.Printf("ipt timeout %+v", t)
+			t.IP6 = CopyIP(ipt.IP6)
+			t.LastUsed = time.Now()
+			// lock.Unlock()
+			t.Mux.Unlock()
+		} else {
+			log.Printf("ipt conflict %+v", t)
+			// lock.Unlock()
+			t.Mux.Unlock()
+			ipt.Port4++
+			pp.GetAndSet(ipt)
+		}
+	} else {
+		// no record
+		t := v.(*NATuple)
+		t.Init()
+		t.Mux.Lock()
+		// ipt.Port4 = ipt.Port4
+		ipt.LastUsed = time.Now()
+		ipt.CopyTo(t)
+		// ipt.Mux = t.Mux
+		// pp.PortMap.Store(ipt.Port4, ipt.Copy())
+		t.Mux.Unlock()
+	}
 }
 
 func (c *Controller) Init() error {
@@ -86,69 +202,49 @@ func (c *Controller) Init() error {
 	return nil
 }
 
-// func (c *Controller) InitTable() {
-// 	// for i, poolStr := range ConfigVar.Spec.Plat
-// 	poolStart := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
-// 	poolEnd := binary.BigEndian.Uint32(ConfigVar.Plat.Src.IP)
-// 	prefix, _ := ConfigVar.Plat.Src.Mask.Size()
-// 	poolEnd |= uint32(0xffffffff) >> uint(prefix)
-// 	// poolSize := int(poolEnd-poolStart) + 1
-// 	// c.Table46 = make(map[uint32]*PortPool, poolSize)
-// 	for i := poolStart; i <= poolEnd; i++ {
-// 		pp := &PortPool{}
-// 		err := pp.Init()
-// 		if err != nil {
-// 			log.Printf("failed to init %d pool: %s", i, err.Error())
-// 		}
-// 		// c.Table46[i] = pp
-// 		c.Table46.Store(i, pp)
-// 	}
-// }
-
 func (c *Controller) InitTable() {
+	c.Table46 = make(map[uint32]*PortPool, len(ConfigVar.Plat.Src))
 	for _, ip := range ConfigVar.Plat.Src {
 		pp := &PortPool{}
 		err := pp.Init()
 		if err != nil {
 			log.Printf("failed to init table %s: %s", ip.String(), err.Error())
 		}
-		c.Table46.Store(binary.BigEndian.Uint32(ip), pp)
+		// c.Table46.Store(binary.BigEndian.Uint32(ip), pp)
+		c.Table46[binary.BigEndian.Uint32(ip)] = pp
 	}
 }
 
-func (c *Controller) SetTable(ip4t *NATuple, ip6t *NATuple) error {
-	// c.Table46[binary.BigEndian.Uint32(ip4t.IP)].Set(ip4t.Port, ip6t)
-	// key := binary.BigEndian.Uint32(ip4t.IP)
-	v, _ := c.Table46.Load(binary.BigEndian.Uint32(ip4t.IP))
-	pp := v.(*PortPool)
-	pp.Set(ip4t.Port, ip6t)
-	return nil
-}
+// func (c *Controller) SetTable(ipt *NATuple) error {
+// 	// c.Table46[binary.BigEndian.Uint32(ip4t.IP)].Set(ip4t.Port, ip6t)
+// 	// key := binary.BigEndian.Uint32(ip4t.IP)
+// 	// v, _ := c.Table46.Load(binary.BigEndian.Uint32(ipt.IP4))
+// 	// pp := v.(*PortPool)
+// 	pp := c.Table46[binary.BigEndian.Uint32(ipt.IP4)]
+// 	pp.GetAndSet(ipt)
+// 	return nil
+// }
 
-func (c *Controller) AllocIP(ip6t *NATuple) *NATuple {
+func (c *Controller) AllocIP(ipt *NATuple) *NATuple {
 	// idx := int(c.hasher.Sum32()) % len(ConfigVar.Plat.Src)
-	idx := int(murmur3.Sum32(ip6t.IP)) % len(ConfigVar.Plat.Src)
-	ip4 := CopyIP(ConfigVar.Plat.Src[idx])
-	// ip4 := HashIP(ip6t.IP)
-	ip4t := &NATuple{
-		IP:   ip4,
-		Port: ip6t.Port,
-	}
-	// log.Printf("saved ip6t %v", nip6t)
-	// c.Table46[binary.BigEndian.Uint32(ip4)].Set(ip4t.Port, nip6t)
-	c.SetTable(ip4t, ip6t.Copy())
-	return ip4t
+	idx := int(murmur3.Sum32(ipt.IP6)) % len(ConfigVar.Plat.Src)
+	ipt.IP4 = CopyIP(ConfigVar.Plat.Src[idx])
+	ipt.Port4 = ipt.Port6
+	pp := c.Table46[binary.BigEndian.Uint32(ipt.IP4)]
+	pp.GetAndSet(ipt)
+	return ipt
 }
 
-func (c *Controller) GetIP(ip4t *NATuple) *NATuple {
+func (c *Controller) GetIP(ipt *NATuple) *NATuple {
 	// return c.Table46[binary.BigEndian.Uint32(ip4t.IP)].Get(ip4t.Port)
-	v, _ := c.Table46.Load(binary.BigEndian.Uint32(ip4t.IP))
+	// v, _ := c.Table46.Load(binary.BigEndian.Uint32(ipt.IP4))
 	// log.Printf("ip4t.IP == %s", ip4t.IP)
 	// if ok == false {
 	// 	return nil
 	// }
-	pp := v.(*PortPool)
-	return pp.Get(ip4t.Port)
+	// pp := v.(*PortPool)
+	pp := c.Table46[binary.BigEndian.Uint32(ipt.IP4)]
+	return pp.Get(ipt)
 }
 
 // func HashIP(srcIP net.IP) net.IP {

@@ -1,25 +1,26 @@
 
 # Readme
 
-Run clat
+Run xlat from code
 
 ``` shell
 cd cmd/plat
 sudo env "PATH=$PATH" env "GOPATH=$GOPATH" env "XLATCONF=$(pwd)/../config.json" go run main.go
 ```
 
+Run xlat through docker
+
+``` shell
+docker run -it --privileged=true --network=host -v $(pwd)/cmd/config.yml:/etc/xlat/config.yml elynn/nat64:latest
+```
+
 Config route rules
 
 ``` shell
-# ip tuntap add tun0 mode tun
-# ifconfig tun0 192.168.8.1/24 up
-# ip route add 9.9.9.9/32 via 192.168.8.1
-# ip -6 route add 2018::/64 dev tun0
 ip -6 addr add 2019::9.9.9.9/64 dev eth0
-# ip -6 addr add 2019::2/64 dev eth0
 ```
 
-Clat Ping Test
+Ping Test
 
 ``` shell
 ping6 2018::192.168.8.1 -I tun0 -c 1
@@ -34,12 +35,6 @@ iperf3 -s -p 9999
 iperf3 -c 2018::192.168.8.1 -p 9999 -t 30
 iperf3 -c 9.9.9.9 -p 9999 -t 30
 iperf3 -c 2017::192.168.8.1 -p 9999 -t 30
-```
-
-Clean
-
-``` shell
-ip tuntap del tun0 mode tun
 ```
 
 pprof

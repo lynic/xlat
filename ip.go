@@ -125,10 +125,13 @@ func IP4ToIP6(p *Packet) (*Packet, error) {
 		ip6t := Ctrl.GetIP(ip4t)
 		// log.Printf("return ip6t %+v", ip6t)
 		if ip6t == nil {
-			p.Print()
-			return nil, fmt.Errorf("Failed to find tuple by %s %d", ip4t.IP, ip4t.Port)
+			// p.Print()
+			return nil, fmt.Errorf("Failed to find tuple by %s %d", ip4t.IP4, ip4t.Port4)
 		}
-		ipv6Layer.DstIP = CopyIP(ip6t.IP)
+		ipv6Layer.DstIP = CopyIP(ip6t.IP6)
+		if ip6t.Port4 != ip6t.Port6 {
+			p.SetDstPort(ip6t.Port6)
+		}
 		// return nil, fmt.Errorf("stateful unsupported")
 	} else {
 		ipv6Layer.DstIP = CopyIP(ConfigVar.Clat.Dst.IP)
@@ -174,9 +177,12 @@ func IP6ToIP4(p *Packet) (*Packet, error) {
 	// ipLayer.SrcIP = net.IP(make([]byte, 4))
 
 	if p.Stateful {
-		ip6t := p.GetSrcTuple()
-		ip4t := Ctrl.AllocIP(ip6t)
-		ipLayer.SrcIP = net.IPv4(ip4t.IP[0], ip4t.IP[1], ip4t.IP[2], ip4t.IP[3]).To4()
+		ipt := p.GetSrcTuple()
+		Ctrl.AllocIP(ipt)
+		ipLayer.SrcIP = net.IPv4(ipt.IP4[0], ipt.IP4[1], ipt.IP4[2], ipt.IP4[3]).To4()
+		if ipt.Port4 != ipt.Port6 {
+			p.SetSrcPort(ipt.Port4)
+		}
 		// return nil, fmt.Errorf("stateful unsupported")
 	} else {
 		srcIP := layer.GetSrc(p)

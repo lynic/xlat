@@ -39,6 +39,7 @@ type XlatConfigSpec struct {
 	MTU        int      `json:"mtu"`
 	PostCMD    []string `json:"post_cmd"`
 	BufferSize int      `json:"buffer_size"`
+	NATTimeout float64  `json:"nat_timeout"`
 	Clat       *struct {
 		Enable bool   `json:"enable"`
 		Src    string `json:"src"`
@@ -185,6 +186,9 @@ func LoadConfig(configPath string) (*XlatConfig, error) {
 	}
 	if configSpec.BufferSize == 0 {
 		configSpec.BufferSize = 1000
+	}
+	if configSpec.NATTimeout == 0 {
+		configSpec.NATTimeout = 30
 	}
 	ConfigVar = &XlatConfig{
 		Spec: configSpec,

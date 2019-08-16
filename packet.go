@@ -1,6 +1,7 @@
 package xlat
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -180,14 +181,21 @@ func (p *Packet) LazyLayers() error {
 func (p *Packet) GetSrcTuple() *NATuple {
 	ipt := &NATuple{}
 	for i := 0; i < len(p.Layers); i++ {
-		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
-			ipt.IP = CopyIP(p.Layers[i].GetSrc(p))
+		if p.Layers[i].Type == LayerTypeIPv4 {
+			ipt.IP4 = p.Layers[i].GetSrc(p)
 		}
-		if p.Layers[i].Type == LayerTypeICMPv4 ||
+		if p.Layers[i].Type == LayerTypeIPv6 {
+			ipt.IP6 = p.Layers[i].GetSrc(p)
+		}
+		if p.Layers[i].Type == LayerTypeTCP ||
+			p.Layers[i].Type == LayerTypeICMPv4 ||
 			p.Layers[i].Type == LayerTypeICMPv6 ||
-			p.Layers[i].Type == LayerTypeTCP ||
 			p.Layers[i].Type == LayerTypeUDP {
-			ipt.Port = p.Layers[i].GetSrcPort(p)
+			if ipt.IP4 != nil {
+				ipt.Port4 = p.Layers[i].GetSrcPort(p)
+			} else {
+				ipt.Port6 = p.Layers[i].GetSrcPort(p)
+			}
 		}
 	}
 	return ipt
@@ -196,17 +204,48 @@ func (p *Packet) GetSrcTuple() *NATuple {
 func (p *Packet) GetDstTuple() *NATuple {
 	ipt := &NATuple{}
 	for i := 0; i < len(p.Layers); i++ {
-		if p.Layers[i].Type == LayerTypeIPv4 || p.Layers[i].Type == LayerTypeIPv6 {
-			ipt.IP = CopyIP(p.Layers[i].GetDst(p))
+		if p.Layers[i].Type == LayerTypeIPv4 {
+			ipt.IP4 = p.Layers[i].GetDst(p)
 		}
-		if p.Layers[i].Type == LayerTypeICMPv4 ||
+		if p.Layers[i].Type == LayerTypeIPv6 {
+			ipt.IP6 = p.Layers[i].GetDst(p)
+		}
+		if p.Layers[i].Type == LayerTypeTCP ||
+			p.Layers[i].Type == LayerTypeICMPv4 ||
 			p.Layers[i].Type == LayerTypeICMPv6 ||
-			p.Layers[i].Type == LayerTypeTCP ||
 			p.Layers[i].Type == LayerTypeUDP {
-			ipt.Port = p.Layers[i].GetDstPort(p)
+			if ipt.IP4 != nil {
+				ipt.Port4 = p.Layers[i].GetDstPort(p)
+			} else {
+				ipt.Port6 = p.Layers[i].GetDstPort(p)
+			}
 		}
 	}
 	return ipt
+}
+
+func (p *Packet) SetSrcPort(port uint16) error {
+	for _, layer := range p.Layers {
+		if layer.Type == LayerTypeTCP || layer.Type == LayerTypeUDP {
+			binary.BigEndian.PutUint16(p.Data[layer.DataStart:layer.DataStart+2], port)
+		}
+		if layer.Type == LayerTypeICMPv4 || layer.Type == LayerTypeICMPv6 {
+			binary.BigEndian.PutUint16(p.Data[layer.DataStart+4:layer.DataStart+6], port)
+		}
+	}
+	return nil
+}
+
+func (p *Packet) SetDstPort(port uint16) error {
+	for _, layer := range p.Layers {
+		if layer.Type == LayerTypeTCP || layer.Type == LayerTypeUDP {
+			binary.BigEndian.PutUint16(p.Data[layer.DataStart+2:layer.DataStart+4], port)
+		}
+		if layer.Type == LayerTypeICMPv4 || layer.Type == LayerTypeICMPv6 {
+			binary.BigEndian.PutUint16(p.Data[layer.DataStart+4:layer.DataStart+6], port)
+		}
+	}
+	return nil
 }
 
 func (p *Packet) GetLayerByType(layerType string) *Layer {
