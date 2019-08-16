@@ -40,7 +40,10 @@ type XlatConfigSpec struct {
 	PostCMD    []string `json:"post_cmd"`
 	BufferSize int      `json:"buffer_size"`
 	NATTimeout float64  `json:"nat_timeout"`
-	Clat       *struct {
+	API        *struct {
+		Enable bool `json:"enable"`
+	} `json:"api"`
+	Clat *struct {
 		Enable bool   `json:"enable"`
 		Src    string `json:"src"`
 		Dst    string `json:"dst"`
@@ -72,6 +75,7 @@ const (
 	ServicePlat  = "plat"
 	ServiceRadvd = "radvd"
 	ServiceDns   = "dns"
+	ServiceAPI   = "api"
 )
 
 // type ClatConfigSpec struct {
@@ -131,6 +135,10 @@ func (c *XlatConfig) Enabled(service string) bool {
 			return true
 		}
 		return false
+	case ServiceAPI:
+		if c.Spec.API != nil && c.Spec.API.Enable == true {
+			return true
+		}
 	}
 	return false
 }
