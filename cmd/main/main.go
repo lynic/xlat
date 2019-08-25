@@ -80,13 +80,14 @@ func main() {
 	// 	return
 	// }
 	if xlat.ConfigVar.Enabled(xlat.ServiceAPI) {
+		log.Printf("Starting %s", xlat.ServiceAPI)
 		err := xlat.StartAPI()
 		if err != nil {
 			log.Printf("Failed to start API: %s", err.Error())
 		}
 	}
 	if xlat.ConfigVar.Enabled(xlat.ServiceClat) {
-		log.Printf("Starting clat")
+		log.Printf("Starting %s", xlat.ServiceClat)
 		err = xlat.StartClat()
 		if err != nil {
 			log.Printf("failed to start clat: %s", err.Error())
@@ -94,25 +95,36 @@ func main() {
 	}
 
 	if xlat.ConfigVar.Enabled(xlat.ServicePlat) {
-		log.Printf("Starting plat")
+		log.Printf("Starting %s", xlat.ServicePlat)
 		err = xlat.StartPlat()
 		if err != nil {
-			log.Printf("failed to start clat: %s", err.Error())
+			log.Printf("failed to start plat: %s", err.Error())
 		}
 	}
 
 	if xlat.ConfigVar.Enabled(xlat.ServiceRadvd) {
-		log.Printf("Starting radvd")
+		log.Printf("Starting %s", xlat.ServiceRadvd)
 		err = xlat.StartRadvd()
 		if err != nil {
-			log.Printf("failed to start clat: %s", err.Error())
+			log.Printf("failed to start radvd: %s", err.Error())
 		}
 	}
 
 	if xlat.ConfigVar.Enabled(xlat.ServiceDns) {
-		log.Printf("Starting dns")
-		go xlat.StartDNS()
+		log.Printf("Starting %s", xlat.ServiceDns)
+		err = xlat.StartDNS()
+		if err != nil {
+			log.Printf("failed to start dns: %s", err.Error())
+		}
 	}
+
+	// if xlat.ConfigVar.Enabled(xlat.ServiceDHCP6) {
+	// 	log.Printf("Starting %s", xlat.ServiceDHCP6)
+	// 	err = xlat.StartDHCP6()
+	// 	if err != nil {
+	// 		log.Printf("failed to start dhcp6: %s", err.Error())
+	// 	}
+	// }
 
 	reservSize := 20
 	blockSize := xlat.ConfigVar.Spec.MTU + reservSize

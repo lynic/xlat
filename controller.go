@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"xlat/dhcp6"
 	"xlat/dns"
 	"xlat/radvd"
 
@@ -136,19 +137,15 @@ func (pp *PortPool) Get(ipt *NATuple) *NATuple {
 	return ipt
 }
 
-func (pp *PortPool) Get2(port uint16) *NATuple {
-	// if _, exist := pp.PortMap[port]; exist == false {
-	// 	return nil
-	// }
-	// return pp.PortMap[port]
-	v, ok := pp.PortMap.Load(port)
-	if ok == false {
-		return nil
-	}
-	out := v.(*NATuple)
-	out.LastUsed = time.Now()
-	return out.Copy()
-}
+// func (pp *PortPool) Get2(port uint16) *NATuple {
+// 	v, ok := pp.PortMap.Load(port)
+// 	if ok == false {
+// 		return nil
+// 	}
+// 	out := v.(*NATuple)
+// 	out.LastUsed = time.Now()
+// 	return out
+// }
 
 func (pp *PortPool) Set(ipt *NATuple) error {
 	// pp.PortMap[port] = ip6t
@@ -254,19 +251,12 @@ func (c *Controller) AllocIP(ipt *NATuple) *NATuple {
 	return ipt
 }
 
-func (c *Controller) GetIP2(ip net.IP, port uint16) *NATuple {
-	pp := c.Table46[binary.BigEndian.Uint32(ip)]
-	return pp.Get2(port)
-}
+// func (c *Controller) GetIP2(ip net.IP, port uint16) *NATuple {
+// 	pp := c.Table46[binary.BigEndian.Uint32(ip)]
+// 	return pp.Get2(port)
+// }
 
 func (c *Controller) GetIP(ipt *NATuple) *NATuple {
-	// return c.Table46[binary.BigEndian.Uint32(ip4t.IP)].Get(ip4t.Port)
-	// v, _ := c.Table46.Load(binary.BigEndian.Uint32(ipt.IP4))
-	// log.Printf("ip4t.IP == %s", ip4t.IP)
-	// if ok == false {
-	// 	return nil
-	// }
-	// pp := v.(*PortPool)
 	pp := c.Table46[binary.BigEndian.Uint32(ipt.IP4)]
 	return pp.Get(ipt)
 }
@@ -295,118 +285,126 @@ func (c *Controller) GetIP(ipt *NATuple) *NATuple {
 // }
 
 func StartRadvd() error {
-	if ConfigVar.Spec.Radvd != nil && ConfigVar.Spec.Radvd.Enable {
-		srv, err := radvd.NewServer()
-		if err != nil {
-			return err
-		}
-		prefixes := make([]net.IPNet, len(ConfigVar.Spec.Radvd.Prefixes))
-		for i, prefix := range ConfigVar.Spec.Radvd.Prefixes {
-			_, ipnet, err := net.ParseCIDR(prefix)
-			if err != nil {
-				return err
-			}
-			prefixes[i] = *ipnet
-		}
-		srv.SetPrefixes(prefixes)
-		conn, err := net.ListenIP("ip6:ipv6-icmp", &net.IPAddr{net.IPv6unspecified, ""})
-		if err != nil {
-			return err
-		}
-		err = srv.SetRdnss(ConfigVar.Spec.Radvd.Rdnss)
-		if err != nil {
-			return err
-		}
-		go func() {
-			if err := srv.Serve(ConfigVar.Spec.Radvd.Interface, conn); err != nil {
-				log.Printf("Failed to start radvd: %s", err)
-			}
-		}()
+	if !ConfigVar.Enabled(ServiceRadvd) {
+		return fmt.Errorf("%s not enabled", ServiceRadvd)
 	}
+	log.Printf("radvd config %+v", ConfigVar.Spec.Radvd)
+	srv, err := radvd.NewServer()
+	if err != nil {
+		return err
+	}
+	prefixes := make([]net.IPNet, len(ConfigVar.Spec.Radvd.Prefixes))
+	for i, prefix := range ConfigVar.Spec.Radvd.Prefixes {
+		_, ipnet, err := net.ParseCIDR(prefix)
+		if err != nil {
+			return err
+		}
+		prefixes[i] = *ipnet
+	}
+	srv.SetPrefixes(prefixes)
+	conn, err := net.ListenIP("ip6:ipv6-icmp", &net.IPAddr{IP: net.IPv6unspecified, Zone: ""})
+	if err != nil {
+		return err
+	}
+	err = srv.SetRdnss(ConfigVar.Spec.Radvd.Rdnss)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := srv.Serve(ConfigVar.Spec.Radvd.Interface, conn); err != nil {
+			log.Printf("Failed to start radvd: %s", err)
+		}
+	}()
 	return nil
 }
 
 func StartClat() error {
-	if ConfigVar.Spec.Clat != nil && ConfigVar.Spec.Clat.Enable {
-		clatConfig := &ClatConfig{}
-		_, clatSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Src)
-		if err != nil {
-			log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
-			return err
-		}
-		clatConfig.Src = clatSrcNet
-		_, clatDstNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Dst)
-		if err != nil {
-			log.Printf("Failed to parse ClatDstIP: %s", err.Error())
-			return err
-		}
-		clatConfig.Dst = clatDstNet
-		ConfigVar.Clat = clatConfig
+	if !ConfigVar.Enabled(ServiceClat) {
+		return fmt.Errorf("%s not enabled", ServiceClat)
 	}
+	clatConfig := &ClatConfig{}
+	_, clatSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Src)
+	if err != nil {
+		log.Printf("Failed to parse ClatSrcIP: %s", err.Error())
+		return err
+	}
+	clatConfig.Src = clatSrcNet
+	_, clatDstNet, err := net.ParseCIDR(ConfigVar.Spec.Clat.Dst)
+	if err != nil {
+		log.Printf("Failed to parse ClatDstIP: %s", err.Error())
+		return err
+	}
+	clatConfig.Dst = clatDstNet
+	ConfigVar.Clat = clatConfig
 	return nil
 }
 
 func StartPlat() error {
-	if ConfigVar.Spec.Plat != nil && ConfigVar.Spec.Plat.Enable {
-		platConfig := &PlatConfig{}
-		platConfig.Src = make([]net.IP, 0)
-		platConfig.SrcIdx = make(map[uint32]int)
-		for _, poolStr := range ConfigVar.Spec.Plat.Src {
-			sp := strings.Split(poolStr, "-")
-			if len(sp) == 2 {
-				startIP := binary.BigEndian.Uint32(net.ParseIP(sp[0]).To4())
-				endIP := binary.BigEndian.Uint32(net.ParseIP(sp[1]).To4())
-				for j := startIP; j <= endIP; j++ {
-					ip := make([]byte, 4)
-					binary.BigEndian.PutUint32(ip, j)
-					platConfig.Src = append(platConfig.Src, net.IP(ip))
-					platConfig.SrcIdx[j] = len(platConfig.Src) - 1
-				}
-			} else {
-				//TODO
-				return fmt.Errorf("failed to parse plat src %s", poolStr)
+	if !ConfigVar.Enabled(ServicePlat) {
+		return fmt.Errorf("%s not enabled", ServicePlat)
+	}
+	platConfig := &PlatConfig{}
+	platConfig.Src = make([]net.IP, 0)
+	platConfig.SrcIdx = make(map[uint32]int)
+	for _, poolStr := range ConfigVar.Spec.Plat.Src {
+		sp := strings.Split(poolStr, "-")
+		if len(sp) == 2 {
+			startIP := binary.BigEndian.Uint32(net.ParseIP(sp[0]).To4())
+			endIP := binary.BigEndian.Uint32(net.ParseIP(sp[1]).To4())
+			for j := startIP; j <= endIP; j++ {
+				ip := make([]byte, 4)
+				binary.BigEndian.PutUint32(ip, j)
+				platConfig.Src = append(platConfig.Src, net.IP(ip))
+				platConfig.SrcIdx[j] = len(platConfig.Src) - 1
 			}
+		} else {
+			//TODO
+			return fmt.Errorf("failed to parse plat src %s", poolStr)
 		}
-		// _, platSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Src)
-		// if err != nil {
-		// 	log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
-		// 	return err
-		// }
-		// platConfig.Src = platSrcNet
-		_, platDstNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Dst)
-		if err != nil {
-			log.Printf("Failed to parse PlatDstIP: %s", err.Error())
-			return err
-		}
-		platConfig.Dst = platDstNet
-		ConfigVar.Plat = platConfig
-		Ctrl = &Controller{}
-		err = Ctrl.Init()
-		if err != nil {
-			log.Printf("Failed to init Controller: %s", err.Error())
-			return err
-		}
+	}
+	// _, platSrcNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Src)
+	// if err != nil {
+	// 	log.Printf("Failed to parse PlatSrcIP: %s", err.Error())
+	// 	return err
+	// }
+	// platConfig.Src = platSrcNet
+	_, platDstNet, err := net.ParseCIDR(ConfigVar.Spec.Plat.Dst)
+	if err != nil {
+		log.Printf("Failed to parse PlatDstIP: %s", err.Error())
+		return err
+	}
+	platConfig.Dst = platDstNet
+	ConfigVar.Plat = platConfig
+	Ctrl = &Controller{}
+	err = Ctrl.Init()
+	if err != nil {
+		log.Printf("Failed to init Controller: %s", err.Error())
+		return err
 	}
 	return nil
 }
 
 func StartDNS() error {
-	if ConfigVar.Spec.DNS != nil && ConfigVar.Spec.DNS.Enable {
-		dserver, err := dns.NewServer(ConfigVar.Spec.DNS.Forwarders, ConfigVar.Spec.DNS.Prefix)
-		if err != nil {
-			// log.Printf(err.Error())
-			return err
-		}
-		err = dserver.ListenAndServe("[::]:53")
-		if err != nil {
-			// log.Printf(err.Error())
-			return err
-		}
+	if !ConfigVar.Enabled(ServiceDns) {
+		return fmt.Errorf("%s not enabled", ServiceDns)
 	}
+	dserver, err := dns.NewServer(ConfigVar.Spec.DNS.Forwarders, ConfigVar.Spec.DNS.Prefix)
+	if err != nil {
+		// log.Printf(err.Error())
+		return err
+	}
+	go func() {
+		if err = dserver.ListenAndServe("[::]:53"); err != nil {
+			log.Printf("Failed to start dns: %s", err)
+		}
+	}()
 	return nil
 }
 
 func StartAPI() error {
+	if !ConfigVar.Enabled(ServiceAPI) {
+		return fmt.Errorf("%s not enabled", ServiceAPI)
+	}
 	server := &WebInfo{}
 	err := server.Init()
 	if err != nil {
@@ -420,6 +418,39 @@ func StartAPI() error {
 	if err != nil {
 		return fmt.Errorf("failed to parse APIPORT %s: %s", portStr, err.Error())
 	}
-	go server.Serve("0.0.0.0", port)
+	go func() {
+		if err = server.Serve("0.0.0.0", port); err != nil {
+			log.Printf("Failed to start API: %s", err)
+		}
+	}()
+	// go server.Serve("0.0.0.0", port)
+	return nil
+}
+
+func StartDHCP6() error {
+	if !ConfigVar.Enabled(ServiceDHCP6) {
+		return fmt.Errorf("%s not enabled", ServiceDHCP6)
+	}
+	server := &dhcp6.DHCP6Server{}
+	err := server.Init(ConfigVar.Spec.DHCP6.Interface)
+	if err != nil {
+		return err
+	}
+	if ConfigVar.Spec.DHCP6.DNS != nil && len(ConfigVar.Spec.DHCP6.DNS) != 0 {
+		err := server.SetDNS(ConfigVar.Spec.DHCP6.DNS)
+		if err != nil {
+			return err
+		}
+	}
+	go func() {
+		if err = server.ListenAndServe(); err != nil {
+			log.Printf("Failed to start DHCP6: %s", err)
+		}
+	}()
+	// err = server.ListenAndServe(ConfigVar.Spec.DHCP6.Interface)
+	// if err != nil {
+	// 	// log.Printf(err.Error())
+	// 	return err
+	// }
 	return nil
 }

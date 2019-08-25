@@ -21,6 +21,27 @@
   version = "v1.1.17"
 
 [[projects]]
+  digest = "1:cbec35fe4d5a4fba369a656a8cd65e244ea2c743007d8f6c1ccb132acf9d1296"
+  name = "github.com/gorilla/mux"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "00bdffe0f3c77e27d2cf6f5c70232a2d3e4d9c15"
+  version = "v1.7.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:071c4de288b7fc57908eb623e6a7adb6e128ebff0a92dfa77c394619294c3a55"
+  name = "github.com/insomniacslk/dhcp"
+  packages = [
+    "dhcpv6",
+    "dhcpv6/server6",
+    "iana",
+    "rfc1035label",
+  ]
+  pruneopts = "UT"
+  revision = "393ae75a101b4e8d93f82dd7242401dd50ac0868"
+
+[[projects]]
   digest = "1:66def2f80d5127123c81ffa876242c12d3b7b06188f6645d79b3cc4acba637b3"
   name = "github.com/miekg/dns"
   packages = ["."]
@@ -43,6 +64,18 @@
   pruneopts = "UT"
   revision = "9f5d223c60793748f04a9d5b4b4eacddfc1f755d"
   version = "v1.1"
+
+[[projects]]
+  digest = "1:57e2d33a793e5841f1e069f2cbb642a06e421b17edae7ee7c27cb2df861295be"
+  name = "github.com/u-root/u-root"
+  packages = [
+    "pkg/rand",
+    "pkg/ubinary",
+    "pkg/uio",
+  ]
+  pruneopts = "UT"
+  revision = "26a90287872f42e357dc889f6918855fc0fde4dc"
+  version = "v6.0.0"
 
 [[projects]]
   branch = "master"
@@ -97,6 +130,9 @@
     "github.com/ghodss/yaml",
     "github.com/google/gopacket",
     "github.com/google/gopacket/layers",
+    "github.com/gorilla/mux",
+    "github.com/insomniacslk/dhcp/dhcpv6",
+    "github.com/insomniacslk/dhcp/dhcpv6/server6",
     "github.com/miekg/dns",
     "github.com/songgao/water",
     "github.com/spaolacci/murmur3",

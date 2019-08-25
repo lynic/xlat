@@ -28,3 +28,8 @@ dns64:
   prefix: "2017::/96"
 api:
  enable: true
+dhcp6:
+  enable: true
+  interface: "ens33"
+  dns:
+  - "2019::1"

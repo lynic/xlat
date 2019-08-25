@@ -55,6 +55,7 @@ type XlatConfigSpec struct {
 	API   *struct {
 		Enable bool `json:"enable"`
 	} `json:"api"`
+	DHCP6 *DHCP6Config `json:"dhcp6"`
 }
 
 type RadvdConfig struct {
@@ -70,12 +71,20 @@ type DNSConfig struct {
 	Prefix     string   `json:"prefix"`
 }
 
+type DHCP6Config struct {
+	Enable    bool     `json:"enable"`
+	Interface string   `json:"interface"`
+	DNS       []string `json:"dns"`
+	// modifiers []dhcpv6.Modifier
+}
+
 const (
 	ServiceClat  = "clat"
 	ServicePlat  = "plat"
 	ServiceRadvd = "radvd"
 	ServiceDns   = "dns"
 	ServiceAPI   = "api"
+	ServiceDHCP6 = "dhcp6"
 )
 
 // type ClatConfigSpec struct {
@@ -137,6 +146,10 @@ func (c *XlatConfig) Enabled(service string) bool {
 		return false
 	case ServiceAPI:
 		if c.Spec.API != nil && c.Spec.API.Enable == true {
+			return true
+		}
+	case ServiceDHCP6:
+		if c.Spec.DHCP6 != nil && c.Spec.DHCP6.Enable == true {
 			return true
 		}
 	}
