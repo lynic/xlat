@@ -6,6 +6,7 @@ github.com/gorilla/mux v1.7.3 h1:gnP5JzjVOuiZD07fKKToCAOjS0yOpj/qPETTXCCS6hw=
 github.com/gorilla/mux v1.7.3/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
 github.com/insomniacslk/dhcp v0.0.0-20190814082028-393ae75a101b h1:2PyiA5CVpWhQ4CPINgksFnopxYOGUN1n2IjKwrRqQDE=
 github.com/insomniacslk/dhcp v0.0.0-20190814082028-393ae75a101b/go.mod h1:CfMdguCK66I5DAUJgGKyNz8aB6vO5dZzkm9Xep6WGvw=
+github.com/insomniacslk/dhcp v0.0.0-20190916180653-834a63bade8a h1:2zDlT9dNJyaDPnJ23Q2LuztY/2TznrFFvAV17jCjgKY=
 github.com/miekg/dns v1.1.15 h1:CSSIDtllwGLMoA6zjdKnaE6Tx6eVUxQ29LUgGetiDCI=
 github.com/miekg/dns v1.1.15/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/songgao/water v0.0.0-20190725173103-fd331bda3f4b h1:+y4hCMc/WKsDbAPsOQZgBSaSZ26uh2afyaWeVg/3s/c=

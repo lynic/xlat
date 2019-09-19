@@ -30,9 +30,8 @@ import (
 )
 
 type Server struct {
-	pc     *ipv6.PacketConn
-	ifname string
-
+	pc       *ipv6.PacketConn
+	ifname   string
 	mu       sync.Mutex
 	prefixes []net.IPNet
 	iface    *net.Interface
@@ -214,7 +213,7 @@ func (s *Server) sendAdvertisement(addr net.Addr) error {
 	// TODO: cache the packet
 	msgbody := []byte{
 		0x40,       // hop limit: 64
-		0x80,       // flags: managed address configuration
+		0x40,       // flags: managed address configuration
 		0x07, 0x08, // router lifetime (s): 1800
 		0x00, 0x00, 0x00, 0x00, // reachable time (ms): 0
 		0x00, 0x00, 0x00, 0x00, // retrans time (ms): 0

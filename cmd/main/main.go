@@ -118,13 +118,13 @@ func main() {
 		}
 	}
 
-	// if xlat.ConfigVar.Enabled(xlat.ServiceDHCP6) {
-	// 	log.Printf("Starting %s", xlat.ServiceDHCP6)
-	// 	err = xlat.StartDHCP6()
-	// 	if err != nil {
-	// 		log.Printf("failed to start dhcp6: %s", err.Error())
-	// 	}
-	// }
+	if xlat.ConfigVar.Enabled(xlat.ServiceDHCP6) {
+		log.Printf("Starting %s", xlat.ServiceDHCP6)
+		err = xlat.StartDHCP6()
+		if err != nil {
+			log.Printf("failed to start dhcp6: %s", err.Error())
+		}
+	}
 
 	reservSize := 20
 	blockSize := xlat.ConfigVar.Spec.MTU + reservSize

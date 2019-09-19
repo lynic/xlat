@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	ModifierTypeDNS      = "dns"
-	ModifierTypeServerID = "serverid"
+	ModifierTypeDNS        = "dns"
+	ModifierTypeServerID   = "serverid"
+	ModifierTypeSearchList = "domainsearchlist"
 )
 
 type DHCP6Server struct {
@@ -73,35 +74,55 @@ func (s *DHCP6Server) SetDNS(dns []string) error {
 	return nil
 }
 
+func (s *DHCP6Server) SetDomainSearchList(list []string) error {
+	if list != nil && len(list) != 0 {
+		s.modifiers[ModifierTypeSearchList] = dhcpv6.WithDomainSearchList(list...)
+	}
+	return nil
+}
+
 func (s *DHCP6Server) handler(conn net.PacketConn, peer net.Addr, m dhcpv6.DHCPv6) {
-	log.Print(m.Summary())
+	// log.Print(m.Summary())
 	switch m.Type() {
-	case dhcpv6.MessageTypeSolicit:
-		// fallthrough
+	// case dhcpv6.MessageTypeSolicit:
+	// 	// fallthrough
+	// 	msg := m.(*dhcpv6.Message)
+	// 	modifiers := s.GetModifiers([]string{ModifierTypeServerID, ModifierTypeDNS, ModifierTypeSearchList})
+	// 	resp, err := dhcpv6.NewAdvertiseFromSolicit(msg, modifiers...)
+	// 	if err != nil {
+	// 		log.Printf("NewAdvertiseFromSolicit failed: %v", err)
+	// 		return
+	// 	}
+	// 	if _, err := conn.WriteTo(resp.ToBytes(), peer); err != nil {
+	// 		log.Printf("Cannot reply to client: %v", err)
+	// 	}
+	// 	log.Print(resp.Summary())
+	// 	return
+	// case dhcpv6.MessageTypeRequest:
+	// 	msg := m.(*dhcpv6.Message)
+	// 	modifiers := s.GetModifiers([]string{ModifierTypeDNS, ModifierTypeServerID})
+	// 	resp, err := dhcpv6.NewReplyFromMessage(msg, modifiers...)
+	// 	if err != nil {
+	// 		log.Printf("NewReplyFromMessage failed: %v", err)
+	// 		return
+	// 	}
+	// 	if _, err := conn.WriteTo(resp.ToBytes(), peer); err != nil {
+	// 		log.Printf("Cannot reply to client: %v", err)
+	// 	}
+	// 	log.Print(resp.Summary())
+	// 	return
+	case dhcpv6.MessageTypeInformationRequest:
 		msg := m.(*dhcpv6.Message)
-		modifiers := s.GetModifiers([]string{ModifierTypeServerID})
-		resp, err := dhcpv6.NewAdvertiseFromSolicit(msg, modifiers...)
-		if err != nil {
-			log.Printf("NewAdvertiseFromSolicit failed: %v", err)
-			return
-		}
-		if _, err := conn.WriteTo(resp.ToBytes(), peer); err != nil {
-			log.Printf("Cannot reply to client: %v", err)
-		}
-		log.Print(resp.Summary())
-		return
-	case dhcpv6.MessageTypeRequest:
-		msg := m.(*dhcpv6.Message)
-		modifiers := s.GetModifiers([]string{ModifierTypeDNS, ModifierTypeServerID})
+		modifiers := s.GetModifiers([]string{ModifierTypeServerID, ModifierTypeDNS})
 		resp, err := dhcpv6.NewReplyFromMessage(msg, modifiers...)
 		if err != nil {
-			log.Printf("NewReplyFromMessage failed: %v", err)
+			log.Printf("NewReplyFromInformationRequest failed: %v", err)
 			return
 		}
 		if _, err := conn.WriteTo(resp.ToBytes(), peer); err != nil {
 			log.Printf("Cannot reply to client: %v", err)
 		}
-		log.Print(resp.Summary())
+		// log.Print(resp.Summary())
 		return
 	}
 }

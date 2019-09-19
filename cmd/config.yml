@@ -18,18 +18,18 @@ plat:
     - "10.0.0.5-10.0.0.250"
   dst: "2017::/96"
 ra:
-  enable: false
-  interface: "ens33"
-  prefixes": ["2019::/64"]
+  enable: true
+  interface: "ens256"
+  prefixes: ["2019::/64"]
   rdnss: "2019::1"
 dns64:
-  enable: false
+  enable: true
   forwarders: ["8.8.8.8:53"]
   prefix: "2017::/96"
 api:
  enable: true
 dhcp6:
-  enable: true
-  interface: "ens33"
+  enable: false
+  interface: "ens256"
   dns:
   - "2019::1"
